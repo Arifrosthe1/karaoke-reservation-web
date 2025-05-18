@@ -1,10 +1,10 @@
 <?php
-$host = 'localhost';
-$db   = 'karaoke_db';
-$user = 'root';
-$pass = '';
+$host = "localhost";
+$user = "root";
+$pass = "";
+$dbname = "karaoke_db";
 
-$conn = new mysqli($host, $user, $pass, $db);
+$conn = new mysqli($host, $user, $pass, $dbname);
 
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
