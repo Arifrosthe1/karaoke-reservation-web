@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if ($user['role'] == 'admin') {
                     header("Location: admin_dashboard.php");
                 } else {
-                    header("Location: user_dashboard.php");
+                    header("Location: user/user_dashboard.php");
                 }
                 exit;
             } else {
@@ -43,14 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <!DOCTYPE html>
 <html  >
 <head>
-  <!-- Site made with Mobirise Website Builder v6.0.5, https://mobirise.com -->
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="generator" content="Mobirise v6.0.5, mobirise.com">
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <link rel="shortcut icon" href="assets/images/cronykaraoke.webp" type="image/x-icon">
   <meta name="description" content="">
-  
   
   <title>Login</title>
   <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
@@ -69,20 +67,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </head>
 <body>
   
-  <section data-bs-version="5.1" class="header15 cid-uLCs2vR839" id="header15-26">
-	
-
-	
-	
+  <section data-bs-version="5.1" class="header15 cid-uLCs2vR839" id="header15-26">	
 	<div class="container">
 		<div class="row justify-content-center">
 			<div class="card col-12 col-lg-12">
 				<div class="card-wrapper wrap">
 					<div class="card-box align-center">
 						<h1 class="card-title mbr-fonts-style mb-4 display-1">
-							<strong>Welcome Back, Dear</strong></h1>
-						
-						
+							<strong>Welcome Back</strong></h1>
 					</div>
 				</div>
 			</div>
@@ -130,17 +122,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 <section data-bs-version="5.1" class="footer3 cid-uLCs2wg56P" once="footers" id="footer03-28">
 
-        
-
-    
-
     <div class="container">
         <div class="row">
             <div class="row-links">
                 <ul class="header-menu">
-                  
-                  
-                  
                   
                 <li class="header-menu-item mbr-fonts-style display-5"><a href="index.html#contacts01-1r" class="text-white text-primary">Contact</a></li><li class="header-menu-item mbr-fonts-style display-5"><a href="index.html#header18-1n" class="text-white text-primary">Home</a></li><li class="header-menu-item mbr-fonts-style display-5"><a href="register.php" class="text-white text-primary">Register</a></li><li class="header-menu-item mbr-fonts-style display-5"><a href="login.php" class="text-white text-primary">Login</a></li></ul>
               </div>
@@ -157,9 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <span class="mbr-iconfont socicon-instagram socicon"></span>
                         </a>
                     </div>
-                    
-                    
-                    
+                                   
                 </div>
             </div>
             <div class="col-12 mt-5">
