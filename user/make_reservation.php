@@ -175,7 +175,7 @@ if(isset($_POST['submit'])) {
     </nav>
 </section>
 
-<section class="page-header" style="padding-top: 145px; padding-bottom: 30px;">
+<section class="page-header" style="padding-top: 150px; padding-bottom: 40px; margin-bottom: 0;">
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-12 text-center">
@@ -186,7 +186,7 @@ if(isset($_POST['submit'])) {
     </div>
 </section>
 
-<section data-bs-version="5.1" id="reservation-form" style="padding-top: 30px; padding-bottom: 90px; background: #edefeb;">
+<section data-bs-version="5.1" id="reservation-form" style="padding-top: 50px; padding-bottom: 90px; background: #edefeb;">
     <div class="container">
         <form method="post" action="" class="needs-validation" novalidate>
             <!-- Step 1: Choose Room -->
@@ -197,7 +197,7 @@ if(isset($_POST['submit'])) {
                     <div class="col-md-4">
                         <div class="room-card" onclick="selectRoom('standard')">
                             <div class="room-image" style="background-image: url('../assets/images/standard-room.png');"></div>
-                            <div class="room-details">
+                            <div class="room-details" style="background:rgb(247, 243, 248);">
                                 <h4><strong>Standard Room</strong></h4>
                                 <p>Perfect for small groups of 2-4 people</p>
                                 <ul>
@@ -219,8 +219,8 @@ if(isset($_POST['submit'])) {
                     <!-- Room 2: Deluxe Room -->
                     <div class="col-md-4">
                         <div class="room-card" onclick="selectRoom('deluxe')">
-                            <div class="room-image" style="background-image: url('../assets/images/deluxe-room.jpg');"></div>
-                            <div class="room-details">
+                            <div class="room-image" style="background-image: url('../assets/images/deluxe-room.png');"></div>
+                            <div class="room-details" style="background:rgb(247, 243, 248);">
                                 <h4><strong>Deluxe Room</strong></h4>
                                 <p>Great for medium groups of 5-8 people</p>
                                 <ul>
@@ -242,17 +242,16 @@ if(isset($_POST['submit'])) {
                     <!-- Room 3: VIP Room -->
                     <div class="col-md-4">
                         <div class="room-card" onclick="selectRoom('vip')">
-                            <div class="room-image" style="background-image: url('../assets/images/vip-room.jpg');"></div>
-                            <div class="room-details">
+                            <div class="room-image" style="background-image: url('../assets/images/vip-room.png');"></div>
+                            <div class="room-details" style="background:rgb(247, 243, 248);">
                                 <h4><strong>VIP Room</strong></h4>
                                 <p>Luxury experience for 8-12 people</p>
                                 <ul>
                                     <li>Premium sound system</li>
                                     <li>6 microphones</li>
                                     <li>65" TV screen</li>
-                                    <li>Private lounge area</li>
                                 </ul>
-                                <h5 class="text-primary">RM 95/hour</h5>
+                                <h5 class="text-primary">RM 99/hour</h5>
                                 <div class="form-check mt-3">
                                     <input class="form-check-input room-select" type="radio" name="room" id="vip-room" value="vip" required>
                                     <label class="form-check-label" for="vip-room">
@@ -269,8 +268,8 @@ if(isset($_POST['submit'])) {
             <div class="form-section date-time-section mt-5">
                 <h2 class="text-center mb-4"><strong>Step 2: Select Date & Time</strong></h2>
                 <div class="row">
-                    <div class="col-md-4">
-                        <div class="mb-3">
+                    <div class="row-md-4 d-flex align-items-stretch">
+                        <div class="mb-3 w-100">
                             <label for="date" class="form-label">Date</label>
                             <input type="date" class="form-control" id="date" name="date" required min="<?php echo date('Y-m-d'); ?>">
                             <div class="invalid-feedback">
@@ -278,11 +277,13 @@ if(isset($_POST['submit'])) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="mb-3">
+                    <div class="col-md-6 d-flex align-items-stretch">
+                        <div class="mb-3 w-100">
                             <label for="time" class="form-label">Time</label>
                             <select class="form-select" id="time" name="time" required>
                                 <option value="" selected disabled>Select time</option>
+                                <option value="10:00">10:00 AM</option>
+                                <option value="11:00">11:00 AM</option>
                                 <option value="12:00">12:00 PM</option>
                                 <option value="13:00">1:00 PM</option>
                                 <option value="14:00">2:00 PM</option>
@@ -294,15 +295,14 @@ if(isset($_POST['submit'])) {
                                 <option value="20:00">8:00 PM</option>
                                 <option value="21:00">9:00 PM</option>
                                 <option value="22:00">10:00 PM</option>
-                                <option value="23:00">11:00 PM</option>
                             </select>
                             <div class="invalid-feedback">
                                 Please select a time.
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="mb-3">
+                    <div class="col-md-6 d-flex align-items-stretch">
+                        <div class="mb-3 w-100">
                             <label for="duration" class="form-label">Duration (hours)</label>
                             <select class="form-select" id="duration" name="duration" required>
                                 <option value="" selected disabled>Select duration</option>
@@ -380,9 +380,9 @@ if(isset($_POST['submit'])) {
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="summary-card">
+                    <div class="summary-card d-flex flex-column align-items-center">
                         <h3 class="mb-4 text-white"><strong>Booking Summary</strong></h3>
-                        <div id="summary-details">
+                        <div id="summary-details" class="w-100">
                             <p><strong>Room:</strong> <span id="summary-room">Not selected</span></p>
                             <p><strong>Date:</strong> <span id="summary-date">Not selected</span></p>
                             <p><strong>Time:</strong> <span id="summary-time">Not selected</span></p>
@@ -391,7 +391,7 @@ if(isset($_POST['submit'])) {
                             <hr>
                             <h4 class="text-white"><strong>Total: <span id="summary-total">RM 0.00</span></strong></h4>
                         </div>
-                        <button type="submit" name="submit" class="btn btn-light btn-lg w-100 mt-4">Confirm Booking</button>
+                        <button type="submit" name="submit" formaction="simulate_payment.php" class="btn btn-light btn-lg mt-4" style="width: 70%; display: block; margin-left: auto; margin-right: auto;">Confirm Booking</button>
                     </div>
                 </div>
             </div>
@@ -399,15 +399,24 @@ if(isset($_POST['submit'])) {
     </div>
 </section>
 
-<footer style="background:#493d9e; padding-top: 20px; padding-bottom: 20px;">
-    <div class="container text-center">
+<section data-bs-version="5.1" class="footer3 cid-uLCpCfgtNL" once="footers" id="footer03-22" style="padding-top: 40px; padding-bottom: 0px;">
+
+    <div class="container">
+        <div class="row">
+            <div class="col-12 content-head">
+                <div class="mbr-section-head mb-5">
+                    <div class="container text-center">
         <a href="user_dashboard.php" class="btn btn-light btn-sm">Back to Dashboard</a>
-        <a href="../logout.php" class="btn btn-light btn-sm">Logout</a>
-        <p class="mbr-fonts-style mb-0 mt-2" style="color:#fff; font-size:0.9rem;">
-            © 2025 Crony Karaoke
-        </p>
+                    <a href="../logout.php" class="btn btn-light btn-sm">Logout</a>
+                    </div>
+            <div class="col-12 mt-5">
+                <p class="mbr-fonts-style copyright display-8">
+                    © Copyright 2025 Crony Karaoke - All Rights Reserved
+                </p>
+            </div>
+        </div>
     </div>
-</footer>
+</section>
 
   <script src="../assets/web/assets/jquery/jquery.min.js"></script>
   <script src="../assets/bootstrap/js/bootstrap.bundle.min.js"></script>

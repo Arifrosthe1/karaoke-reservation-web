@@ -132,19 +132,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
 </section>
 
-<section data-bs-version="5.1" class="footer3 cid-uLCpCfgtNL" once="footers" id="footer03-22">
-
-        
-
-    
+<section data-bs-version="5.1" class="footer3 cid-uLCpCfgtNL" once="footers" id="footer03-22" style="padding-top: 40px; padding-bottom: 50px;">
 
     <div class="container">
         <div class="row">
             <div class="row-links">
-                <ul class="header-menu">
-                  
-                  
-                  
+                <ul class="header-menu"> 
                   
                 <li class="header-menu-item mbr-fonts-style display-5"><a href="index.html#contacts01-1r" class="text-white text-primary">Contact</a></li><li class="header-menu-item mbr-fonts-style display-5"><a href="index.html#header18-1n" class="text-white text-primary">Home</a></li><li class="header-menu-item mbr-fonts-style display-5"><a href="register.php" class="text-white text-primary">Register</a></li><li class="header-menu-item mbr-fonts-style display-5"><a href="login.php" class="text-white text-primary">Login</a></li></ul>
               </div>
@@ -161,8 +154,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <span class="mbr-iconfont socicon-instagram socicon"></span>
                         </a>
                     </div>
-                    
-                    
                     
                 </div>
             </div>

@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
 </section>
 
-<section data-bs-version="5.1" class="footer3 cid-uLCs2wg56P" once="footers" id="footer03-28">
+<section data-bs-version="5.1" class="footer3 cid-uLCs2wg56P" once="footers" id="footer03-28" style="padding-top: 40px; padding-bottom: 50px;">
 
     <div class="container">
         <div class="row">

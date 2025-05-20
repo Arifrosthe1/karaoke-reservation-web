@@ -169,8 +169,8 @@ $username = $_SESSION['fullName'];
                         <p class="card-text mbr-fonts-style display-7 text-white">
                             Update your email, phone number, and password
                         </p>
-                        <div class="mbr-section-btn mt-3">
-                            <a href="profile_update.php" class="btn btn-white display-4">Update Profile</a>
+                        <div class="mbr-section-btn mt-3"> <!--dis--> 
+                            <a href="profile_update.php" class="btn btn-white display-3 disabled" role="button" aria-disabled="true" style="color: #DDDDDD !important;">Update Profile</a>
                         </div>
                     </div>
                 </div>
@@ -190,7 +190,7 @@ $username = $_SESSION['fullName'];
                             Book a room, select date and time
                         </p>
                         <div class="mbr-section-btn mt-3">
-                            <a href="make_reservation.php" class="btn btn-white display-4">Book Now</a>
+                            <a href="make_reservation.php" class="btn btn-white display-3" style="color: #000 !important;">Book Now</a>
                         </div>
                     </div>
                 </div>
@@ -210,7 +210,7 @@ $username = $_SESSION['fullName'];
                             Cancel your existing bookings
                         </p>
                         <div class="mbr-section-btn mt-3">
-                            <a href="cancel_reservation.php" class="btn btn-white display-4">Cancel Booking</a>
+                            <a href="cancel_reservation.php" class="btn btn-white display-3 disabled" role="button" aria-disabled="true" style="color: #DDDDDD !important;">Cancel Booking</a>
                         </div>
                     </div>
                 </div>
@@ -230,7 +230,7 @@ $username = $_SESSION['fullName'];
                             See your invoice and payment details
                         </p>
                         <div class="mbr-section-btn mt-3">
-                            <a href="invoice.php" class="btn btn-white display-4">View Invoice</a>
+                            <a href="invoice.php" class="btn btn-white display-3 disabled" role="button" aria-disabled="true" style="color: #DDDDDD !important;">View Invoice</a>
                         </div>
                     </div>
                 </div>
@@ -361,19 +361,47 @@ $username = $_SESSION['fullName'];
                 </div>
             </div>
         </div>
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-8">
+                <div class="card p-4 shadow" style="border-radius: 20px; background:hsl(0, 0.00%, 100.00%);">
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><strong>📍 We're Expanding!</strong></h5>
+                        <p class="card-text">Exciting news! We're opening soon in <strong>Penang</strong> and <strong>Johor</strong>. Stay tuned for updates and launch promos!</p>
+                        <span class="badge bg-info text-dark">Coming Soon</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 
 
-<footer style="background:#493d9e; padding-top: 20px; padding-bottom: 20px;">
+<!-- <footer style="background:#493d9e; padding-top: 20px; padding-bottom: 20px;">
     <div class="container text-center">
         <a href="../logout.php" class="btn btn-light btn-sm">Logout</a>
         <p class="mbr-fonts-style mb-0 mt-2" style="color:#fff; font-size:0.9rem;">
             © 2025 Crony Karaoke
         </p>
     </div>
-</footer>
-</footer>
+</footer> -->
+
+<section data-bs-version="5.1" class="footer3 cid-uLCpCfgtNL" once="footers" id="footer03-22" style="padding-top: 40px; padding-bottom: 0px;">
+
+    <div class="container">
+        <div class="row">
+            <div class="col-12 content-head">
+                <div class="mbr-section-head mb-5">
+                    <div class="container text-center">
+                    <a href="../logout.php" class="btn btn-light btn-sm">Logout</a>
+                    </div>
+            <div class="col-12 mt-5">
+                <p class="mbr-fonts-style copyright display-8">
+                    © Copyright 2025 Crony Karaoke - All Rights Reserved
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
 
   <script src="../assets/web/assets/jquery/jquery.min.js"></script>
   <script src="../assets/bootstrap/js/bootstrap.bundle.min.js"></script>
