@@ -167,7 +167,7 @@ $bookingReference = '#CK' . str_pad($completed_reservation['reservationID'], 5, 
           </div>
           
           <div class="d-grid gap-2">
-            <a href="user_dashboard.php" class="btn btn-primary btn-lg">View My Bookings</a>
+            <a href="booking.php" class="btn btn-primary btn-lg">View My Bookings</a>
             <a href="make_reservation.php" class="btn btn-outline-primary">Book Another Room</a>
           </div>
         </div>
