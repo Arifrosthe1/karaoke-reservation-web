@@ -26,46 +26,48 @@ if(isset($_POST['submit'])) {
     $time = $_POST['time'];
     $duration = $_POST['duration'];
     $specialRequests = isset($_POST['special_requests']) ? $_POST['special_requests'] : '';
-    
-    // Get room details based on type
+
+    // Get all available rooms of the selected package
     $roomQuery = "SELECT r.roomID, p.pricePerHour 
                   FROM rooms r 
                   JOIN packages p ON r.packageID = p.packageID 
-                  WHERE p.packageName = ? AND r.status = 'available' 
-                  LIMIT 1";
-    
+                  WHERE p.packageName = ? AND r.status = 'available'";
     $stmt = mysqli_prepare($conn, $roomQuery);
     mysqli_stmt_bind_param($stmt, "s", $roomType);
     mysqli_stmt_execute($stmt);
     $roomResult = mysqli_stmt_get_result($stmt);
-    
-    if($roomData = mysqli_fetch_assoc($roomResult)) {
+
+    $roomFound = false;
+
+    while ($roomData = mysqli_fetch_assoc($roomResult)) {
         $roomID = $roomData['roomID'];
         $pricePerHour = $roomData['pricePerHour'];
         $totalPrice = $pricePerHour * $duration;
-        
-        // Calculate end time
+
+        // Format start and end time
         $startTimeObj = DateTime::createFromFormat('H:i', $time);
         $endTimeObj = clone $startTimeObj;
         $endTimeObj->add(new DateInterval('PT' . $duration . 'H'));
-        $endTime = $endTimeObj->format('H:i:s');
         $startTime = $startTimeObj->format('H:i:s');
-        
-        // Check for conflicts
+        $endTime = $endTimeObj->format('H:i:s');
+
+        // Check if this room is already booked
         $conflictQuery = "SELECT COUNT(*) as count FROM reservations 
-                         WHERE roomID = ? AND reservationDate = ? 
-                         AND status != 'cancelled'
-                         AND ((startTime <= ? AND endTime > ?) 
-                         OR (startTime < ? AND endTime >= ?))";
-        
+                          WHERE roomID = ? AND reservationDate = ? 
+                          AND status != 'cancelled'
+                          AND ((startTime < ? AND endTime > ?) 
+                          OR (startTime < ? AND endTime > ?))";
+
         $conflictStmt = mysqli_prepare($conn, $conflictQuery);
-        mysqli_stmt_bind_param($conflictStmt, "isssss", $roomID, $date, $startTime, $startTime, $endTime, $endTime);
+        mysqli_stmt_bind_param($conflictStmt, "isssss", $roomID, $date, $endTime, $startTime, $startTime, $endTime);
         mysqli_stmt_execute($conflictStmt);
         $conflictResult = mysqli_stmt_get_result($conflictStmt);
         $conflictData = mysqli_fetch_assoc($conflictResult);
-        
-        if($conflictData['count'] == 0) {
-            // Store reservation data in session for payment processing
+
+        if ($conflictData['count'] == 0) {
+            $roomFound = true;
+
+            // Store reservation data in session for payment
             $_SESSION['pending_reservation'] = [
                 'userID' => $userID,
                 'roomID' => $roomID,
@@ -77,15 +79,15 @@ if(isset($_POST['submit'])) {
                 'totalPrice' => $totalPrice,
                 'specialRequests' => $specialRequests
             ];
-            
-            // Redirect to payment simulation
+
+            // Redirect to simulate payment
             header("Location: simulate_payment.php");
             exit();
-        } else {
-            $error_message = "Sorry, this time slot is already booked. Please choose a different time.";
         }
-    } else {
-        $error_message = "Sorry, no rooms available for the selected type.";
+    }
+
+    if (!$roomFound) {
+        $error_message = "Sorry, all rooms of this type are fully booked at the selected time.";
     }
 }
 ?>
