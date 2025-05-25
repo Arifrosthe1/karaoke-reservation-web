@@ -31,10 +31,8 @@ if(isset($_POST['submit'])) {
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- Site made with Mobirise Website Builder v6.0.5, https://mobirise.com -->
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="generator" content="Mobirise v6.0.5, mobirise.com">
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <link rel="shortcut icon" href="../assets/images/cronykaraoke.webp" type="image/x-icon">
   <meta name="description" content="Crony Karaoke - Make a Reservation">

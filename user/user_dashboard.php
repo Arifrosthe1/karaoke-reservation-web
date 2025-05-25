@@ -10,10 +10,8 @@ $username = $_SESSION['fullName'];
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- Site made with Mobirise Website Builder v6.0.5, https://mobirise.com -->
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="generator" content="Mobirise v6.0.5, mobirise.com">
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <link rel="shortcut icon" href="../assets/images/cronykaraoke.webp" type="image/x-icon">
   <meta name="description" content="Crony Karaoke - User Dashboard">
@@ -216,7 +214,7 @@ $username = $_SESSION['fullName'];
                 </div>
             </div>
             
-            <!-- View Invoice Card -->
+            <!-- View Booking -->
             <div class="col-md-6 col-lg-3">
                 <div class="card dashboard-card" style="background: linear-gradient(45deg, #493d9e, #8571ff);">
                     <div class="card-body text-center p-4">
@@ -224,13 +222,13 @@ $username = $_SESSION['fullName'];
                             <span class="mbr-iconfont mobi-mbri-file mobi-mbri"></span>
                         </div>
                         <h4 class="card-title mbr-fonts-style display-7 text-white">
-                            <strong>View Invoice</strong>
+                            <strong>View Booking</strong>
                         </h4>
                         <p class="card-text mbr-fonts-style display-7 text-white">
-                            See your invoice and payment details
+                            See your booking and payment details
                         </p>
                         <div class="mbr-section-btn mt-3">
-                            <a href="invoice.php" class="btn btn-white display-3 disabled" role="button" aria-disabled="true" style="color: #DDDDDD !important;">View Invoice</a>
+                            <a href="invoice.php" class="btn btn-white display-3 disabled" role="button" aria-disabled="true" style="color: #DDDDDD !important;">View Booking</a>
                         </div>
                     </div>
                 </div>
