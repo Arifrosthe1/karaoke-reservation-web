@@ -128,52 +128,52 @@ $bookingReference = '#CK' . str_pad($completed_reservation['reservationID'], 5, 
     </div>
 </section>
 
-<div class="content-wrapper">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="success-card animate-fade-in">
-                    <div class="success-icon">
-                        <span class="check">✓</span>
-                    </div>
-                    <h3 class="success-heading">Payment Successful!</h3>
-                    <p class="success-subtext">Your karaoke room has been booked. We're looking forward to welcoming you!</p>
-                    
-                    <div class="booking-details">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h5 class="mb-3">Booking Details</h5>
-                                <p><strong>Booking Reference:</strong></p>
-                                <h4 style="color: #493d9e; margin-bottom: 1rem;"><?php echo $bookingReference; ?></h4>
-                                <p><strong>Date:</strong> <?php echo date('F j, Y', strtotime($completed_reservation['reservationDate'])); ?></p>
-                                <p><strong>Time:</strong> <?php echo date('g:i A', strtotime($completed_reservation['startTime'])); ?> - <?php echo date('g:i A', strtotime($completed_reservation['endTime'])); ?></p>
-                            </div>
-                            <div class="col-md-6">
-                                <h5 class="mb-3">Payment Summary</h5>
-                                <p><strong>Room Type:</strong> <?php echo htmlspecialchars($completed_reservation['roomType'] == 1 ? 'Standard Room' : ($completed_reservation['roomType'] == 2 ? 'Deluxe Room' : 'VIP Room')); ?></p>
-                                <p><strong>Payment Method:</strong> <?php echo htmlspecialchars($completed_reservation['paymentMethod']); ?></p>
-                                <p><strong>Amount Paid:</strong> RM <?php echo number_format($completed_reservation['totalPrice'], 2); ?></p>
-                                <p><span class="badge bg-success">PAID</span></p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4 text-center">
-                        <div class="alert alert-info">
-                            <p class="mb-1"><strong>📧 Confirmation Email Sent</strong></p>
-                            <p class="mb-0">A confirmation email has been sent to your registered email address.</p>
-                        </div>
-                        <p class="mb-0"><small class="text-muted">Please present your booking reference upon arrival at our venue.</small></p>
-                    </div>
-                    
-                    <div class="d-grid gap-2">
-                        <a href="user_dashboard.php" class="btn btn-primary btn-lg">View My Bookings</a>
-                        <a href="make_reservation.php" class="btn btn-outline-primary">Book Another Room</a>
-                    </div>
-                </div>
+<div class="content-wrapper" style="justify-content: center; align-items: center; display: flex; min-height: 70vh;">
+  <div class="container d-flex justify-content-center align-items-center">
+    <div class="row justify-content-center w-100">
+      <div class="col-md-8">
+        <div class="success-card animate-fade-in mx-auto">
+          <div class="success-icon">
+            <span class="check">✓</span>
+          </div>
+          <h3 class="success-heading">Payment Successful!</h3>
+          <p class="success-subtext">Your karaoke room has been booked. We're looking forward to welcoming you!</p>
+          
+          <div class="booking-details">
+            <div class="row">
+              <div class="col-md-6">
+                <h5 class="mb-3">Booking Details</h5>
+                <p><strong>Booking Reference:</strong></p>
+                <h4 style="color: #493d9e; margin-bottom: 1rem;"><?php echo $bookingReference; ?></h4>
+                <p><strong>Date:</strong> <?php echo date('F j, Y', strtotime($completed_reservation['reservationDate'])); ?></p>
+                <p><strong>Time:</strong> <?php echo date('g:i A', strtotime($completed_reservation['startTime'])); ?> - <?php echo date('g:i A', strtotime($completed_reservation['endTime'])); ?></p>
+              </div>
+              <div class="col-md-6">
+                <h5 class="mb-3">Payment Summary</h5>
+                <p><strong>Room Type:</strong> <?php echo htmlspecialchars($completed_reservation['roomType'] == 1 ? 'Standard Room' : ($completed_reservation['roomType'] == 2 ? 'Deluxe Room' : 'VIP Room')); ?></p>
+                <p><strong>Payment Method:</strong> <?php echo htmlspecialchars($completed_reservation['paymentMethod']); ?></p>
+                <p><strong>Amount Paid:</strong> RM <?php echo number_format($completed_reservation['totalPrice'], 2); ?></p>
+                <p><span class="badge bg-success">PAID</span></p>
+              </div>
             </div>
+          </div>
+          
+          <div class="mb-4 text-center">
+            <div class="alert alert-info">
+              <p class="mb-1"><strong>📧 Confirmation Email Sent</strong></p>
+              <p class="mb-0">A confirmation email has been sent to your registered email address.</p>
+            </div>
+            <p class="mb-0"><small class="text-muted">Please present your booking reference upon arrival at our venue.</small></p>
+          </div>
+          
+          <div class="d-grid gap-2">
+            <a href="user_dashboard.php" class="btn btn-primary btn-lg">View My Bookings</a>
+            <a href="make_reservation.php" class="btn btn-outline-primary">Book Another Room</a>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 </div>
 
 <footer class="py-4" style="background: #333; color: white; text-align: center;">

@@ -102,10 +102,10 @@ if (!isset($_SESSION['completed_reservation'])) {
     </div>
 </section>
 
-<div class="content-wrapper">
+<div class="content-wrapper d-flex justify-content-center align-items-center" style="min-height: 60vh;">
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-md-6">
+            <div class="col-md-6 d-flex justify-content-center align-items-center">
                 <div class="payment-processing-card">
                     <div class="spinner"></div>
                     <h3 class="processing-text">Processing your payment...</h3>

@@ -93,20 +93,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Get room type name for display
-$roomTypeNames = [
-    1 => 'Standard Room',
-    2 => 'Deluxe Room', 
-    3 => 'VIP Room'
-];
-
-// Get package details
-$packageQuery = "SELECT * FROM packages WHERE packageID = ?";
+// Get package details based on the room type (package name)
+$packageQuery = "SELECT * FROM packages WHERE packageName = ?";
 $packageStmt = mysqli_prepare($conn, $packageQuery);
-mysqli_stmt_bind_param($packageStmt, "i", $pending_reservation['roomType']);
+mysqli_stmt_bind_param($packageStmt, "s", $pending_reservation['roomType']);
 mysqli_stmt_execute($packageStmt);
 $packageResult = mysqli_stmt_get_result($packageStmt);
 $package = mysqli_fetch_assoc($packageResult);
+
+// If package is not found, set default values to prevent errors
+if (!$package) {
+    $package = [
+        'packageName' => $pending_reservation['roomType'] ?? 'Unknown',
+        'pricePerHour' => 0
+    ];
+}
 ?>
 
 <!DOCTYPE html>
