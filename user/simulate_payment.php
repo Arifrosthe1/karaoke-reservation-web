@@ -1,153 +1,298 @@
+<?php
+session_start();
+require_once '../dbconfig.php';
+
+// Check if user is logged in
+if (!isset($_SESSION['userID'])) {
+    header("Location: ../login.php");
+    exit();
+}
+
+// Check if there's a pending reservation
+if (!isset($_SESSION['pending_reservation'])) {
+    header("Location: make_reservation.php");
+    exit();
+}
+
+$pending_reservation = $_SESSION['pending_reservation'];
+
+// Handle payment processing
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $payment_method = $_POST['payment_method'] ?? '';
+    
+    if (empty($payment_method)) {
+        $error_message = "Please select a payment method.";
+    } else {
+        // Start transaction
+        mysqli_begin_transaction($conn);
+        
+        try {
+            // Insert reservation into database
+            $insertReservationQuery = "INSERT INTO reservations (userID, roomID, reservationDate, startTime, endTime, totalPrice, status, addInfo) 
+                                      VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?)";
+            
+            $stmt = mysqli_prepare($conn, $insertReservationQuery);
+            mysqli_stmt_bind_param($stmt, "iiissds", 
+                $pending_reservation['userID'],
+                $pending_reservation['roomID'],
+                $pending_reservation['reservationDate'],
+                $pending_reservation['startTime'],
+                $pending_reservation['endTime'],
+                $pending_reservation['totalPrice'],
+                $pending_reservation['specialRequests']
+            );
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Failed to create reservation");
+            }
+            
+            // Get the reservation ID
+            $reservationID = mysqli_insert_id($conn);
+            
+            // Insert payment record
+            $insertPaymentQuery = "INSERT INTO payments (reservationID, paymentMethod, amountPaid, paymentStatus) 
+                                  VALUES (?, ?, ?, 'paid')";
+            
+            $paymentStmt = mysqli_prepare($conn, $insertPaymentQuery);
+            mysqli_stmt_bind_param($paymentStmt, "isd", 
+                $reservationID,
+                $payment_method,
+                $pending_reservation['totalPrice']
+            );
+            
+            if (!mysqli_stmt_execute($paymentStmt)) {
+                throw new Exception("Failed to record payment");
+            }
+            
+            // Commit transaction
+            mysqli_commit($conn);
+            
+            // Store reservation details for confirmation page
+            $_SESSION['completed_reservation'] = [
+                'reservationID' => $reservationID,
+                'roomType' => $pending_reservation['roomType'],
+                'reservationDate' => $pending_reservation['reservationDate'],
+                'startTime' => $pending_reservation['startTime'],
+                'endTime' => $pending_reservation['endTime'],
+                'totalPrice' => $pending_reservation['totalPrice'],
+                'paymentMethod' => $payment_method
+            ];
+            
+            // Clear pending reservation
+            unset($_SESSION['pending_reservation']);
+            
+            // Redirect to processing page
+            header("Location: payment_processing.php");
+            exit();
+            
+        } catch (Exception $e) {
+            // Rollback transaction
+            mysqli_rollback($conn);
+            $error_message = "Payment processing failed. Please try again.";
+        }
+    }
+}
+
+// Get room type name for display
+$roomTypeNames = [
+    1 => 'Standard Room',
+    2 => 'Deluxe Room', 
+    3 => 'VIP Room'
+];
+
+// Get package details
+$packageQuery = "SELECT * FROM packages WHERE packageID = ?";
+$packageStmt = mysqli_prepare($conn, $packageQuery);
+mysqli_stmt_bind_param($packageStmt, "i", $pending_reservation['roomType']);
+mysqli_stmt_execute($packageStmt);
+$packageResult = mysqli_stmt_get_result($packageStmt);
+$package = mysqli_fetch_assoc($packageResult);
+?>
+
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- Site made with Mobirise Website Builder v6.0.5, https://mobirise.com -->
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="generator" content="Mobirise v6.0.5, mobirise.com">
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-  <link rel="shortcut icon" href="../assets/images/cronykaraoke.webp" type="image/x-icon">
-  <meta name="description" content="Crony Karaoke - Processing Payment">
-
-  <title>Payment Processing - Crony Karaoke</title>
-  <link rel="stylesheet" href="../assets/web/assets/mobirise-icons2/mobirise2.css">
-  <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
-  <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap-grid.min.css">
-  <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap-reboot.min.css">
-  <link rel="stylesheet" href="../assets/animatecss/animate.css">
-  <link rel="stylesheet" href="../assets/dropdown/css/style.css">
-  <link rel="stylesheet" href="../assets/socicon/css/styles.css">
-  <link rel="stylesheet" href="../assets/theme/css/style.css">
-  <link rel="preload" href="https://fonts.googleapis.com/css?family=Inter+Tight:100,200,300,400,500,600,700,800,900,100i,200i,300i,400i,500i,600i,700i,800i,900i&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter+Tight:100,200,300,400,500,600,700,800,900,100i,200i,300i,400i,500i,600i,700i,800i,900i&display=swap"></noscript>
-  <link rel="preload" as="style" href="../assets/mobirise/css/mbr-additional.css?v=f0jscm">
-  <link rel="stylesheet" href="../assets/mobirise/css/mbr-additional.css?v=f0jscm" type="text/css">
-
-  <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-    .content-wrapper {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 4rem 0;
-      background: #edefeb;
-    }
-    .payment-processing-card {
-      background: white;
-      border-radius: 10px;
-      padding: 3rem;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-      text-align: center;
-      max-width: 500px;
-      width: 100%;
-    }
-    .payment-header {
-      margin-bottom: 2rem;
-    }
-    .spinner {
-      width: 80px;
-      height: 80px;
-      border: 8px solid #f3f3f3;
-      border-top: 8px solid #493d9e;
-      border-radius: 50%;
-      animation: spin 1.5s linear infinite;
-      margin: 0 auto 2rem;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .processing-text {
-      color: #333;
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-    }
-    .processing-subtext {
-      color: #666;
-      margin-bottom: 2rem;
-    }
-    .page-header {
-      background: linear-gradient(45deg, #493d9e, #8571ff);
-      color: white;
-      padding: 60px 0;
-      margin-bottom: 0;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+    <link rel="shortcut icon" href="../assets/images/cronykaraoke.webp" type="image/x-icon">
+    <title>Payment - Crony Karaoke</title>
+    <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../assets/theme/css/style.css">
+    <style>
+        body {
+            background: #edefeb;
+            font-family: 'Inter Tight', sans-serif;
+        }
+        .payment-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .payment-header {
+            background: linear-gradient(45deg, #493d9e, #8571ff);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .booking-summary {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+        }
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .payment-method {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .payment-method:hover {
+            border-color: #493d9e;
+            background: #f8f9ff;
+        }
+        .payment-method.selected {
+            border-color: #493d9e;
+            background: #f8f9ff;
+        }
+        .payment-method input[type="radio"] {
+            display: none;
+        }
+        .payment-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .btn-primary {
+            background: #493d9e;
+            border-color: #493d9e;
+            padding: 12px 30px;
+        }
+        .btn-primary:hover {
+            background: #3d3486;
+            border-color: #3d3486;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+    </style>
 </head>
 <body>
 
-<section class="page-header" style="padding-top: 40px; padding-bottom: 20px; margin-bottom: 0;">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-12 text-center">
-                <h1 class="display-3 fw-bold">Processing Your Payment</h1>
-                <p class="lead">Please wait while we secure your reservation</p>
-            </div>
-        </div>
+<div class="payment-container">
+    <div class="payment-header">
+        <h2>Complete Your Payment</h2>
+        <p>Secure your karaoke room reservation</p>
     </div>
-</section>
-
-<div class="content-wrapper d-flex justify-content-center align-items-center" style="min-height: 60vh;">
-    <div class="container">
-        <div class="row justify-content-center align-items-center" style="min-height: 100%;">
-            <div class="col-md-6 d-flex justify-content-center align-items-center">
-                <div class="payment-processing-card">
-                    <h3 class="processing-text">Processing your payment...</h3>
-                    <p class="processing-subtext">Please don't close this window. You'll be redirected automatically when the process is complete.</p>
-                    <div class="progress" style="height: 10px;">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
+    
+    <div class="p-4">
+        <?php if (isset($error_message)): ?>
+            <div class="error-message">
+                <?php echo htmlspecialchars($error_message); ?>
+            </div>
+        <?php endif; ?>
+        
+        <!-- Booking Summary -->
+        <div class="booking-summary">
+            <h4 class="mb-3">Booking Summary</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Room Type:</strong> <?php echo htmlspecialchars($package['packageName']); ?></p>
+                    <p><strong>Date:</strong> <?php echo date('F j, Y', strtotime($pending_reservation['reservationDate'])); ?></p>
+                    <p><strong>Time:</strong> <?php echo date('g:i A', strtotime($pending_reservation['startTime'])); ?> - <?php echo date('g:i A', strtotime($pending_reservation['endTime'])); ?></p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Duration:</strong> <?php echo $pending_reservation['duration']; ?> hour(s)</p>
+                    <p><strong>Rate:</strong> RM <?php echo number_format($package['pricePerHour'], 2); ?>/hour</p>
+                    <hr>
+                    <h5><strong>Total Amount: RM <?php echo number_format($pending_reservation['totalPrice'], 2); ?></strong></h5>
                 </div>
             </div>
+            <?php if (!empty($pending_reservation['specialRequests'])): ?>
+                <p><strong>Special Requests:</strong> <?php echo htmlspecialchars($pending_reservation['specialRequests']); ?></p>
+            <?php endif; ?>
         </div>
+        
+        <!-- Payment Form -->
+        <form method="POST" id="paymentForm">
+            <h4 class="mb-3">Select Payment Method</h4>
+            
+            <div class="payment-methods">
+                <label class="payment-method" for="credit_card">
+                    <input type="radio" name="payment_method" value="Credit Card" id="credit_card">
+                    <div class="payment-icon">💳</div>
+                    <div><strong>Credit Card</strong></div>
+                    <small class="text-muted">Visa, MasterCard, Amex</small>
+                </label>
+                
+                <label class="payment-method" for="debit_card">
+                    <input type="radio" name="payment_method" value="Debit Card" id="debit_card">
+                    <div class="payment-icon">💳</div>
+                    <div><strong>Debit Card</strong></div>
+                    <small class="text-muted">Bank debit cards</small>
+                </label>
+                
+                <label class="payment-method" for="online_banking">
+                    <input type="radio" name="payment_method" value="Online Banking" id="online_banking">
+                    <div class="payment-icon">🏦</div>
+                    <div><strong>Online Banking</strong></div>
+                    <small class="text-muted">FPX, Internet Banking</small>
+                </label>
+                
+                <label class="payment-method" for="ewallet">
+                    <input type="radio" name="payment_method" value="E-Wallet" id="ewallet">
+                    <div class="payment-icon">📱</div>
+                    <div><strong>E-Wallet</strong></div>
+                    <small class="text-muted">Touch 'n Go, GrabPay</small>
+                </label>
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="make_reservation.php" class="btn btn-outline-secondary">
+                    ← Back to Booking
+                </a>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    Pay RM <?php echo number_format($pending_reservation['totalPrice'], 2); ?>
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
-<section data-bs-version="5.1" class="footer3 cid-uLCpCfgtNL" once="footers" id="footer03-22" style="padding-top: 0px; padding-bottom: 30px;">
-
-    <div class="container">
-        <div class="row">
-            <div class="col-12 content-head">
-            <div class="col-12 mt-5">
-                <p class="mbr-fonts-style copyright display-8">
-                    © Copyright 2025 Crony Karaoke - All Rights Reserved
-                </p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<script src="../assets/web/assets/jquery/jquery.min.js"></script>
 <script src="../assets/bootstrap/js/bootstrap.bundle.min.js"></script>
-<script src="../assets/smoothscroll/smooth-scroll.js"></script>
-<script src="../assets/dropdown/js/script.min.js"></script>
-<script src="../assets/touchswipe/jquery.touch-swipe.min.js"></script>
-<script src="../assets/theme/js/script.js"></script>
-
 <script>
-    // Animate progress bar
-    let progress = 0;
-    const progressBar = document.querySelector('.progress-bar');
+    // Handle payment method selection
+    document.querySelectorAll('.payment-method').forEach(method => {
+        method.addEventListener('click', function() {
+            // Remove selected class from all methods
+            document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
+            // Add selected class to clicked method
+            this.classList.add('selected');
+        });
+    });
     
-    const interval = setInterval(function() {
-        progress += 5;
-        progressBar.style.width = progress + '%';
-        progressBar.setAttribute('aria-valuenow', progress);
-        
-        if (progress >= 100) {
-            clearInterval(interval);
-            // Redirect after progress reaches 100%
-            setTimeout(function() {
-                window.location.href = "payment_done.php";
-            }, 500);
+    // Form validation
+    document.getElementById('paymentForm').addEventListener('submit', function(e) {
+        const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
+        if (!selectedPayment) {
+            e.preventDefault();
+            alert('Please select a payment method.');
         }
-    }, 150); // Slightly faster to complete in about 3 seconds
+    });
 </script>
 
 </body>
