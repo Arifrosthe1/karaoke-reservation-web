@@ -27,15 +27,44 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         mysqli_begin_transaction($conn);
         
         try {
+            // Ensure date is in correct format (YYYY-MM-DD)
+            $reservationDate = $pending_reservation['reservationDate'];
+            
+            // If date is in different format, convert it
+            if (!empty($reservationDate)) {
+                $dateObj = DateTime::createFromFormat('Y-m-d', $reservationDate);
+                if (!$dateObj) {
+                    // Try other common formats
+                    $dateObj = DateTime::createFromFormat('m/d/Y', $reservationDate);
+                    if (!$dateObj) {
+                        $dateObj = DateTime::createFromFormat('d/m/Y', $reservationDate);
+                    }
+                }
+                
+                if ($dateObj) {
+                    $reservationDate = $dateObj->format('Y-m-d');
+                } else {
+                    throw new Exception("Invalid date format");
+                }
+            }
+            
+            // Debug: Log the values being inserted (remove in production)
+            error_log("Inserting reservation - UserID: " . $pending_reservation['userID'] . 
+                     ", RoomID: " . $pending_reservation['roomID'] . 
+                     ", Date: " . $reservationDate . 
+                     ", Start: " . $pending_reservation['startTime'] . 
+                     ", End: " . $pending_reservation['endTime']);
+            
             // Insert reservation into database
             $insertReservationQuery = "INSERT INTO reservations (userID, roomID, reservationDate, startTime, endTime, totalPrice, status, addInfo) 
                                       VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?)";
             
             $stmt = mysqli_prepare($conn, $insertReservationQuery);
-            mysqli_stmt_bind_param($stmt, "iiissds", 
+            
+            mysqli_stmt_bind_param($stmt, "iisssds", 
                 $pending_reservation['userID'],
                 $pending_reservation['roomID'],
-                $pending_reservation['reservationDate'],
+                $reservationDate,  // Now properly formatted
                 $pending_reservation['startTime'],
                 $pending_reservation['endTime'],
                 $pending_reservation['totalPrice'],
@@ -43,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             );
             
             if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Failed to create reservation");
+                throw new Exception("Failed to create reservation: " . mysqli_error($conn));
             }
             
             // Get the reservation ID
@@ -61,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             );
             
             if (!mysqli_stmt_execute($paymentStmt)) {
-                throw new Exception("Failed to record payment");
+                throw new Exception("Failed to record payment: " . mysqli_error($conn));
             }
             
             // Commit transaction
@@ -71,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['completed_reservation'] = [
                 'reservationID' => $reservationID,
                 'roomType' => $pending_reservation['roomType'],
-                'reservationDate' => $pending_reservation['reservationDate'],
+                'reservationDate' => $reservationDate,  // Use the formatted date
                 'startTime' => $pending_reservation['startTime'],
                 'endTime' => $pending_reservation['endTime'],
                 'totalPrice' => $pending_reservation['totalPrice'],
@@ -88,7 +117,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } catch (Exception $e) {
             // Rollback transaction
             mysqli_rollback($conn);
-            $error_message = "Payment processing failed. Please try again.";
+            $error_message = "Payment processing failed: " . $e->getMessage();
+            error_log("Payment processing error: " . $e->getMessage());
         }
     }
 }
@@ -204,6 +234,16 @@ if (!$package) {
         <?php if (isset($error_message)): ?>
             <div class="error-message">
                 <?php echo htmlspecialchars($error_message); ?>
+            </div>
+        <?php endif; ?>
+        
+        <!-- Debug info (remove in production) -->
+        <?php if (isset($_GET['debug'])): ?>
+            <div class="alert alert-info">
+                <strong>Debug Info:</strong><br>
+                Date: <?php echo htmlspecialchars($pending_reservation['reservationDate'] ?? 'Not set'); ?><br>
+                User ID: <?php echo htmlspecialchars($pending_reservation['userID'] ?? 'Not set'); ?><br>
+                Room ID: <?php echo htmlspecialchars($pending_reservation['roomID'] ?? 'Not set'); ?>
             </div>
         <?php endif; ?>
         
