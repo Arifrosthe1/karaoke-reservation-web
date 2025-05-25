@@ -433,123 +433,202 @@ if(isset($_POST['submit'])) {
 
   <script>
     // Room selection
-    function selectRoom(roomType) {
-        // Clear all selections
-        document.querySelectorAll('.room-card').forEach(card => {
-            card.classList.remove('selected');
-        });
-        
-        // Select the clicked room
-        document.getElementById(roomType + '-room').checked = true;
-        document.getElementById(roomType + '-room').closest('.room-card').classList.add('selected');
-        
-        // Update summary
-        updateSummary();
-    }
-    
-    // Add-on selection
-    document.querySelectorAll('.addon-select').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            if(this.checked) {
-                this.closest('.addon-item').classList.add('selected');
-            } else {
-                this.closest('.addon-item').classList.remove('selected');
-            }
-            updateSummary();
-        });
+function selectRoom(roomType) {
+    // Clear all selections
+    document.querySelectorAll('.room-card').forEach(card => {
+        card.classList.remove('selected');
     });
     
-    // Date, time and duration change
-    document.getElementById('date').addEventListener('change', updateSummary);
-    document.getElementById('time').addEventListener('change', updateSummary);
-    document.getElementById('duration').addEventListener('change', updateSummary);
+    // Select the clicked room
+    document.getElementById(roomType + '-room').checked = true;
+    document.getElementById(roomType + '-room').closest('.room-card').classList.add('selected');
     
-    // Update booking summary
-    function updateSummary() {
-        // Room
-        let roomElement = document.querySelector('input[name="room"]:checked');
-        let roomName = "Not selected";
-        let roomPrice = 0;
-        
-        if(roomElement) {
-            switch(roomElement.value) {
-                case 'standard':
-                    roomName = "Standard Room";
-                    roomPrice = 40;
-                    break;
-                case 'deluxe':
-                    roomName = "Deluxe Room";
-                    roomPrice = 65;
-                    break;
-                case 'vip':
-                    roomName = "VIP Room";
-                    roomPrice = 95;
-                    break;
-            }
+    // Update summary
+    updateSummary();
+}
+
+// Add-on selection
+document.querySelectorAll('.addon-select').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        if(this.checked) {
+            this.closest('.addon-item').classList.add('selected');
+        } else {
+            this.closest('.addon-item').classList.remove('selected');
         }
-        
-        document.getElementById('summary-room').textContent = roomName;
-        
-        // Date
-        let date = document.getElementById('date').value;
-        document.getElementById('summary-date').textContent = date ? new Date(date).toLocaleDateString() : "Not selected";
-        
-        // Time
-        let time = document.getElementById('time').value;
-        document.getElementById('summary-time').textContent = time ? time : "Not selected";
-        
-        // Duration
-        let duration = document.getElementById('duration').value;
-        document.getElementById('summary-duration').textContent = duration ? duration + " hour(s)" : "Not selected";
-        
-        // Add-ons
-        let addons = [];
-        let addonsTotal = 0;
-        
-        document.querySelectorAll('input[name="addons[]"]:checked').forEach(addon => {
-            switch(addon.value) {
-                case 'food-platter':
-                    addons.push("Food Platter (RM 45)");
-                    addonsTotal += 45;
-                    break;
-                case 'drink-package':
-                    addons.push("Drink Package (RM 35)");
-                    addonsTotal += 35;
-                    break;
-                case 'extra-mic':
-                    addons.push("Extra Microphone (RM 10)");
-                    addonsTotal += 10;
-                    break;
-            }
-        });
-        
-        document.getElementById('summary-addons').textContent = addons.length > 0 ? addons.join(", ") : "None";
-        
-        // Total
-        let total = duration && roomPrice ? (roomPrice * duration) + addonsTotal : 0;
-        document.getElementById('summary-total').textContent = "RM " + total.toFixed(2);
+        updateSummary();
+    });
+});
+
+// Date, time and duration change
+document.getElementById('date').addEventListener('change', updateSummary);
+document.getElementById('time').addEventListener('change', function() {
+    updateDurationOptions();
+    updateSummary();
+});
+document.getElementById('duration').addEventListener('change', updateSummary);
+
+// Function to update duration options based on selected time
+function updateDurationOptions() {
+    const timeSelect = document.getElementById('time');
+    const durationSelect = document.getElementById('duration');
+    const selectedTime = timeSelect.value;
+    
+    if (!selectedTime) {
+        // Reset to default options if no time selected
+        resetDurationOptions();
+        return;
     }
     
-    // Form validation
-    (function () {
-        'use strict'
+    // Convert selected time to 24-hour format number
+    const selectedHour = parseInt(selectedTime.split(':')[0]);
+    
+    // Calculate maximum hours until 11 PM (23:00)
+    const maxHours = 23 - selectedHour;
+    
+    // Clear current options
+    durationSelect.innerHTML = '<option value="" selected disabled>Select duration</option>';
+    
+    // Add duration options up to the maximum allowed
+    for (let i = 1; i <= Math.min(5, maxHours); i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i + (i === 1 ? ' hour' : ' hours');
+        durationSelect.appendChild(option);
+    }
+    
+    // If no hours are available (e.g., selected time is 11 PM or later)
+    if (maxHours <= 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No available duration';
+        option.disabled = true;
+        durationSelect.appendChild(option);
+    }
+    
+    // Reset duration selection
+    durationSelect.value = '';
+}
+
+// Function to reset duration options to default
+function resetDurationOptions() {
+    const durationSelect = document.getElementById('duration');
+    durationSelect.innerHTML = `
+        <option value="" selected disabled>Select duration</option>
+        <option value="1">1 hour</option>
+        <option value="2">2 hours</option>
+        <option value="3">3 hours</option>
+        <option value="4">4 hours</option>
+        <option value="5">5 hours</option>
+    `;
+}
+
+// Update booking summary
+function updateSummary() {
+    // Room
+    let roomElement = document.querySelector('input[name="room"]:checked');
+    let roomName = "Not selected";
+    let roomPrice = 0;
+    
+    if(roomElement) {
+        switch(roomElement.value) {
+            case 'standard':
+                roomName = "Standard Room";
+                roomPrice = 40;
+                break;
+            case 'deluxe':
+                roomName = "Deluxe Room";
+                roomPrice = 65;
+                break;
+            case 'vip':
+                roomName = "VIP Room";
+                roomPrice = 99;
+                break;
+        }
+    }
+    
+    document.getElementById('summary-room').textContent = roomName;
+    
+    // Date
+    let date = document.getElementById('date').value;
+    document.getElementById('summary-date').textContent = date ? new Date(date).toLocaleDateString() : "Not selected";
+    
+    // Time
+    let time = document.getElementById('time').value;
+    let timeDisplay = "Not selected";
+    if (time) {
+        // Convert 24-hour format to 12-hour format for display
+        const hour = parseInt(time.split(':')[0]);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+        timeDisplay = displayHour + ':00 ' + ampm;
+    }
+    document.getElementById('summary-time').textContent = timeDisplay;
+    
+    // Duration
+    let duration = document.getElementById('duration').value;
+    let durationDisplay = "Not selected";
+    if (duration) {
+        durationDisplay = duration + " hour(s)";
         
-        // Fetch all forms we want to apply validation to
-        var forms = document.querySelectorAll('.needs-validation')
-        
-        // Loop over them and prevent submission
-        Array.prototype.slice.call(forms)
-            .forEach(function (form) {
-                form.addEventListener('submit', function (event) {
-                    if (!form.checkValidity()) {
-                        event.preventDefault()
-                        event.stopPropagation()
-                    }
-                    
-                    form.classList.add('was-validated')
-                }, false)
-            })
-    })()
+        // Show end time if both time and duration are selected
+        if (time) {
+            const startHour = parseInt(time.split(':')[0]);
+            const endHour = startHour + parseInt(duration);
+            const endAmpm = endHour >= 12 ? 'PM' : 'AM';
+            const endDisplayHour = endHour > 12 ? endHour - 12 : (endHour === 0 ? 12 : endHour);
+            durationDisplay += ` (until ${endDisplayHour}:00 ${endAmpm})`;
+        }
+    }
+    document.getElementById('summary-duration').textContent = durationDisplay;
+    
+    // Add-ons
+    let addons = [];
+    let addonsTotal = 0;
+    
+    document.querySelectorAll('input[name="addons[]"]:checked').forEach(addon => {
+        switch(addon.value) {
+            case 'food-platter':
+                addons.push("Food Platter (RM 45)");
+                addonsTotal += 45;
+                break;
+            case 'drink-package':
+                addons.push("Drink Package (RM 35)");
+                addonsTotal += 35;
+                break;
+            case 'extra-mic':
+                addons.push("Extra Microphone (RM 10)");
+                addonsTotal += 10;
+                break;
+        }
+    });
+    
+    document.getElementById('summary-addons').textContent = addons.length > 0 ? addons.join(", ") : "None";
+    
+    // Total
+    let total = duration && roomPrice ? (roomPrice * duration) + addonsTotal : 0;
+    document.getElementById('summary-total').textContent = "RM " + total.toFixed(2);
+}
+
+// Form validation
+(function () {
+    'use strict'
+    
+    // Fetch all forms we want to apply validation to
+    var forms = document.querySelectorAll('.needs-validation')
+    
+    // Loop over them and prevent submission
+    Array.prototype.slice.call(forms)
+        .forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                
+                form.classList.add('was-validated')
+            }, false)
+        })
+})();
   </script>
 
   <input name="animation" type="hidden">
