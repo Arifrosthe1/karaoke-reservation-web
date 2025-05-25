@@ -175,7 +175,7 @@ $username = $_SESSION['fullName'];
                             Update your email, phone number, and password
                         </p>
                         <div class="mbr-section-btn mt-3"> <!--dis--> 
-                            <a href="profile_update.php" class="btn btn-white display-3 disabled" role="button" aria-disabled="true" style="color: #DDDDDD !important;">Update Profile</a>
+                            <a href="profile_update.php" class="btn btn-white display-3" style="color: #000 !important;">Update Profile</a>
                         </div>
                     </div>
                 </div>
@@ -215,7 +215,7 @@ $username = $_SESSION['fullName'];
                             Cancel your existing bookings
                         </p>
                         <div class="mbr-section-btn mt-3">
-                            <a href="cancel_reservation.php" class="btn btn-white display-3 disabled" role="button" aria-disabled="true" style="color: #DDDDDD !important;">Cancel Booking</a>
+                            <a href="cancel_reservation.php" class="btn btn-white display-3" style="color: #000 !important;">Cancel Booking</a>
                         </div>
                     </div>
                 </div>
@@ -235,7 +235,7 @@ $username = $_SESSION['fullName'];
                             See your booking and payment details
                         </p>
                         <div class="mbr-section-btn mt-3">
-                            <a href="invoice.php" class="btn btn-white display-3 disabled" role="button" aria-disabled="true" style="color: #DDDDDD !important;">View Booking</a>
+                            <a href="booking.php" class="btn btn-white display-3" style="color: #000 !important;">View Booking</a>
                         </div>
                     </div>
                 </div>

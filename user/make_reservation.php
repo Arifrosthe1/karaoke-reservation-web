@@ -1,38 +1,93 @@
 <?php
-
-include '../dbconfig.php'; // your database connection
+include '../dbconfig.php';
 session_start();
 
 // Check if user is logged in
 if (!isset($_SESSION['userID'])) {
-    // Redirect to login page
     header("Location: ../login.php");
     exit();
 }
 
+$userID = $_SESSION['userID'];
 $username = $_SESSION['fullName'];
 
-// Get available rooms
-$roomsQuery = "SELECT * FROM rooms WHERE status = 'available' ORDER BY roomName";
+// Get available rooms with their packages
+$roomsQuery = "SELECT r.*, p.packageName, p.pricePerHour, p.description 
+               FROM rooms r 
+               JOIN packages p ON r.packageID = p.packageID 
+               WHERE r.status = 'available' 
+               ORDER BY r.packageID, r.roomName";
 $roomsResult = mysqli_query($conn, $roomsQuery);
 
 // Handle form submission
 if(isset($_POST['submit'])) {
-    $roomId = $_POST['room'];
+    $roomType = $_POST['room'];
     $date = $_POST['date'];
     $time = $_POST['time'];
     $duration = $_POST['duration'];
-    $addons = isset($_POST['addons']) ? $_POST['addons'] : [];
+    $specialRequests = isset($_POST['special_requests']) ? $_POST['special_requests'] : '';
     
-    // Add reservation to database
-    // This is just a placeholder - you would need to implement the actual reservation logic
+    // Get room details based on type
+    $roomQuery = "SELECT r.roomID, p.pricePerHour 
+                  FROM rooms r 
+                  JOIN packages p ON r.packageID = p.packageID 
+                  WHERE p.packageName = ? AND r.status = 'available' 
+                  LIMIT 1";
     
-    // Redirect to confirmation page or refresh with success message
-    $_SESSION['success_message'] = "Reservation successfully booked!";
-    header("Location: user_dashboard.php");
-    exit();
+    $stmt = mysqli_prepare($conn, $roomQuery);
+    mysqli_stmt_bind_param($stmt, "s", $roomType);
+    mysqli_stmt_execute($stmt);
+    $roomResult = mysqli_stmt_get_result($stmt);
+    
+    if($roomData = mysqli_fetch_assoc($roomResult)) {
+        $roomID = $roomData['roomID'];
+        $pricePerHour = $roomData['pricePerHour'];
+        $totalPrice = $pricePerHour * $duration;
+        
+        // Calculate end time
+        $startTimeObj = DateTime::createFromFormat('H:i', $time);
+        $endTimeObj = clone $startTimeObj;
+        $endTimeObj->add(new DateInterval('PT' . $duration . 'H'));
+        $endTime = $endTimeObj->format('H:i:s');
+        $startTime = $startTimeObj->format('H:i:s');
+        
+        // Check for conflicts
+        $conflictQuery = "SELECT COUNT(*) as count FROM reservations 
+                         WHERE roomID = ? AND reservationDate = ? 
+                         AND status != 'cancelled'
+                         AND ((startTime <= ? AND endTime > ?) 
+                         OR (startTime < ? AND endTime >= ?))";
+        
+        $conflictStmt = mysqli_prepare($conn, $conflictQuery);
+        mysqli_stmt_bind_param($conflictStmt, "isssss", $roomID, $date, $startTime, $startTime, $endTime, $endTime);
+        mysqli_stmt_execute($conflictStmt);
+        $conflictResult = mysqli_stmt_get_result($conflictStmt);
+        $conflictData = mysqli_fetch_assoc($conflictResult);
+        
+        if($conflictData['count'] == 0) {
+            // Store reservation data in session for payment processing
+            $_SESSION['pending_reservation'] = [
+                'userID' => $userID,
+                'roomID' => $roomID,
+                'roomType' => $roomType,
+                'reservationDate' => $date,
+                'startTime' => $startTime,
+                'endTime' => $endTime,
+                'duration' => $duration,
+                'totalPrice' => $totalPrice,
+                'specialRequests' => $specialRequests
+            ];
+            
+            // Redirect to payment simulation
+            header("Location: simulate_payment.php");
+            exit();
+        } else {
+            $error_message = "Sorry, this time slot is already booked. Please choose a different time.";
+        }
+    } else {
+        $error_message = "Sorry, no rooms available for the selected type.";
+    }
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -96,20 +151,6 @@ if(isset($_POST['submit'])) {
     .form-section {
       margin-bottom: 30px;
     }
-    .addon-item {
-      background: #f8f9fa;
-      border-radius: 10px;
-      padding: 15px;
-      margin-bottom: 15px;
-      transition: all 0.3s ease;
-    }
-    .addon-item:hover {
-      background: #e9ecef;
-    }
-    .addon-item.selected {
-      background: #e0e7ff;
-      border: 1px solid #493d9e;
-    }
     .form-label {
       font-weight: 600;
       color: #333;
@@ -133,6 +174,9 @@ if(isset($_POST['submit'])) {
       color: white;
       padding: 60px 0;
       margin-bottom: 40px;
+    }
+    .alert {
+      margin-bottom: 20px;
     }
   </style>
 </head>
@@ -193,6 +237,13 @@ if(isset($_POST['submit'])) {
 
 <section data-bs-version="5.1" id="reservation-form" style="padding-top: 50px; padding-bottom: 90px; background: #edefeb;">
     <div class="container">
+        <?php if(isset($error_message)): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?php echo $error_message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <?php endif; ?>
+
         <form method="post" action="" class="needs-validation" novalidate>
             <!-- Step 1: Choose Room -->
             <div class="form-section">
@@ -200,7 +251,7 @@ if(isset($_POST['submit'])) {
                 <div class="row">
                     <!-- Room 1: Standard Room -->
                     <div class="col-md-4">
-                        <div class="room-card" onclick="selectRoom('standard')">
+                        <div class="room-card" onclick="selectRoom('Standard')">
                             <div class="room-image" style="background-image: url('../assets/images/standard-room.png');"></div>
                             <div class="room-details" style="background:rgb(247, 243, 248);">
                                 <h4><strong>Standard Room</strong></h4>
@@ -212,7 +263,7 @@ if(isset($_POST['submit'])) {
                                 </ul>
                                 <h5 class="text-primary">RM 40/hour</h5>
                                 <div class="form-check mt-3">
-                                    <input class="form-check-input room-select" type="radio" name="room" id="standard-room" value="standard" required>
+                                    <input class="form-check-input room-select" type="radio" name="room" id="standard-room" value="Standard" required>
                                     <label class="form-check-label" for="standard-room">
                                         Select Room
                                     </label>
@@ -223,7 +274,7 @@ if(isset($_POST['submit'])) {
                     
                     <!-- Room 2: Deluxe Room -->
                     <div class="col-md-4">
-                        <div class="room-card" onclick="selectRoom('deluxe')">
+                        <div class="room-card" onclick="selectRoom('Deluxe')">
                             <div class="room-image" style="background-image: url('../assets/images/deluxe-room.png');"></div>
                             <div class="room-details" style="background:rgb(247, 243, 248);">
                                 <h4><strong>Deluxe Room</strong></h4>
@@ -235,7 +286,7 @@ if(isset($_POST['submit'])) {
                                 </ul>
                                 <h5 class="text-primary">RM 65/hour</h5>
                                 <div class="form-check mt-3">
-                                    <input class="form-check-input room-select" type="radio" name="room" id="deluxe-room" value="deluxe" required>
+                                    <input class="form-check-input room-select" type="radio" name="room" id="deluxe-room" value="Deluxe" required>
                                     <label class="form-check-label" for="deluxe-room">
                                         Select Room
                                     </label>
@@ -246,7 +297,7 @@ if(isset($_POST['submit'])) {
                     
                     <!-- Room 3: VIP Room -->
                     <div class="col-md-4">
-                        <div class="room-card" onclick="selectRoom('vip')">
+                        <div class="room-card" onclick="selectRoom('VIP')">
                             <div class="room-image" style="background-image: url('../assets/images/vip-room.png');"></div>
                             <div class="room-details" style="background:rgb(247, 243, 248);">
                                 <h4><strong>VIP Room</strong></h4>
@@ -258,7 +309,7 @@ if(isset($_POST['submit'])) {
                                 </ul>
                                 <h5 class="text-primary">RM 99/hour</h5>
                                 <div class="form-check mt-3">
-                                    <input class="form-check-input room-select" type="radio" name="room" id="vip-room" value="vip" required>
+                                    <input class="form-check-input room-select" type="radio" name="room" id="vip-room" value="VIP" required>
                                     <label class="form-check-label" for="vip-room">
                                         Select Room
                                     </label>
@@ -273,7 +324,7 @@ if(isset($_POST['submit'])) {
             <div class="form-section date-time-section mt-5">
                 <h2 class="text-center mb-4"><strong>Step 2: Select Date & Time</strong></h2>
                 <div class="row">
-                    <div class="row-md-4 d-flex align-items-stretch">
+                    <div class="col-md-4 d-flex align-items-stretch">
                         <div class="mb-3 w-100">
                             <label for="date" class="form-label">Date</label>
                             <input type="date" class="form-control" id="date" name="date" required min="<?php echo date('Y-m-d'); ?>">
@@ -282,7 +333,7 @@ if(isset($_POST['submit'])) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 d-flex align-items-stretch">
+                    <div class="col-md-4 d-flex align-items-stretch">
                         <div class="mb-3 w-100">
                             <label for="time" class="form-label">Time</label>
                             <select class="form-select" id="time" name="time" required>
@@ -306,7 +357,7 @@ if(isset($_POST['submit'])) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 d-flex align-items-stretch">
+                    <div class="col-md-4 d-flex align-items-stretch">
                         <div class="mb-3 w-100">
                             <label for="duration" class="form-label">Duration (hours)</label>
                             <select class="form-select" id="duration" name="duration" required>
@@ -325,59 +376,11 @@ if(isset($_POST['submit'])) {
                 </div>
             </div>
             
-            <!-- Step 3: Choose Add-ons -->
-            <!--<div class="form-section mt-5">
-                <h2 class="text-center mb-4"><strong>Step 3: Select Add-ons (Optional)</strong></h2>
-                <div class="row">
-                    // Food Platter
-                    <div class="col-md-4">
-                        <div class="addon-item">
-                            <div class="form-check">
-                                <input class="form-check-input addon-select" type="checkbox" name="addons[]" id="food-platter" value="food-platter">
-                                <label class="form-check-label" for="food-platter">
-                                    <h5><strong>Food Platter</strong></h5>
-                                    <p>Assorted finger foods and snacks</p>
-                                    <p class="text-primary">+ RM 45</p>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    // Drink Package
-                    <div class="col-md-4">
-                        <div class="addon-item">
-                            <div class="form-check">
-                                <input class="form-check-input addon-select" type="checkbox" name="addons[]" id="drink-package" value="drink-package">
-                                <label class="form-check-label" for="drink-package">
-                                    <h5><strong>Drink Package</strong></h5>
-                                    <p>Unlimited soft drinks for your session</p>
-                                    <p class="text-primary">+ RM 35</p>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    // Extra Microphone
-                    <div class="col-md-4">
-                        <div class="addon-item">
-                            <div class="form-check">
-                                <input class="form-check-input addon-select" type="checkbox" name="addons[]" id="extra-mic" value="extra-mic">
-                                <label class="form-check-label" for="extra-mic">
-                                    <h5><strong>Extra Microphone</strong></h5>
-                                    <p>Additional microphone for larger groups</p>
-                                    <p class="text-primary">+ RM 10 each</p>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>-->
-            
-            <!-- Step 4: Booking Summary -->
+            <!-- Step 3: Booking Summary -->
             <div class="row mt-5">
                 <div class="col-md-8">
                     <div class="form-section">
-                        <h2 class="mb-4"><strong>Step 4: Additional Information</strong></h2>
+                        <h2 class="mb-4"><strong>Step 3: Additional Information</strong></h2>
                         <div class="mb-3">
                             <label for="special-requests" class="form-label">Special Requests (Optional)</label>
                             <textarea class="form-control" id="special-requests" name="special_requests" rows="4" placeholder="Any special requests or arrangements..."></textarea>
@@ -392,11 +395,10 @@ if(isset($_POST['submit'])) {
                             <p><strong>Date:</strong> <span id="summary-date">Not selected</span></p>
                             <p><strong>Time:</strong> <span id="summary-time">Not selected</span></p>
                             <p><strong>Duration:</strong> <span id="summary-duration">Not selected</span></p>
-                            <p><strong>Add-ons:</strong> <span id="summary-addons">None</span></p>
                             <hr>
                             <h4 class="text-white"><strong>Total: <span id="summary-total">RM 0.00</span></strong></h4>
                         </div>
-                        <button type="submit" name="submit" formaction="simulate_payment.php" class="btn btn-light btn-lg mt-4" style="width: 70%; display: block; margin-left: auto; margin-right: auto;">Confirm Booking</button>
+                        <button type="submit" name="submit" class="btn btn-light btn-lg mt-4" style="width: 70%; display: block; margin-left: auto; margin-right: auto;">Confirm Booking</button>
                     </div>
                 </div>
             </div>
@@ -405,15 +407,16 @@ if(isset($_POST['submit'])) {
 </section>
 
 <section data-bs-version="5.1" class="footer3 cid-uLCpCfgtNL" once="footers" id="footer03-22" style="padding-top: 40px; padding-bottom: 0px;">
-
     <div class="container">
         <div class="row">
             <div class="col-12 content-head">
                 <div class="mbr-section-head mb-5">
                     <div class="container text-center">
-        <a href="user_dashboard.php" class="btn btn-light btn-sm">Back to Dashboard</a>
-                    <a href="../logout.php" class="btn btn-light btn-sm">Logout</a>
+                        <a href="user_dashboard.php" class="btn btn-light btn-sm">Back to Dashboard</a>
+                        <a href="../logout.php" class="btn btn-light btn-sm">Logout</a>
                     </div>
+                </div>
+            </div>
             <div class="col-12 mt-5">
                 <p class="mbr-fonts-style copyright display-8">
                     © Copyright 2025 Crony Karaoke - All Rights Reserved
@@ -433,202 +436,149 @@ if(isset($_POST['submit'])) {
 
   <script>
     // Room selection
-function selectRoom(roomType) {
-    // Clear all selections
-    document.querySelectorAll('.room-card').forEach(card => {
-        card.classList.remove('selected');
-    });
-    
-    // Select the clicked room
-    document.getElementById(roomType + '-room').checked = true;
-    document.getElementById(roomType + '-room').closest('.room-card').classList.add('selected');
-    
-    // Update summary
-    updateSummary();
-}
+    function selectRoom(roomType) {
+        // Clear all selections
+        document.querySelectorAll('.room-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        
+        // Select the clicked room
+        document.getElementById(roomType.toLowerCase() + '-room').checked = true;
+        document.getElementById(roomType.toLowerCase() + '-room').closest('.room-card').classList.add('selected');
+        
+        // Update summary
+        updateSummary();
+    }
 
-// Add-on selection
-document.querySelectorAll('.addon-select').forEach(checkbox => {
-    checkbox.addEventListener('change', function() {
-        if(this.checked) {
-            this.closest('.addon-item').classList.add('selected');
-        } else {
-            this.closest('.addon-item').classList.remove('selected');
-        }
+    // Date, time and duration change
+    document.getElementById('date').addEventListener('change', updateSummary);
+    document.getElementById('time').addEventListener('change', function() {
+        updateDurationOptions();
         updateSummary();
     });
-});
+    document.getElementById('duration').addEventListener('change', updateSummary);
 
-// Date, time and duration change
-document.getElementById('date').addEventListener('change', updateSummary);
-document.getElementById('time').addEventListener('change', function() {
-    updateDurationOptions();
-    updateSummary();
-});
-document.getElementById('duration').addEventListener('change', updateSummary);
-
-// Function to update duration options based on selected time
-function updateDurationOptions() {
-    const timeSelect = document.getElementById('time');
-    const durationSelect = document.getElementById('duration');
-    const selectedTime = timeSelect.value;
-    
-    if (!selectedTime) {
-        // Reset to default options if no time selected
-        resetDurationOptions();
-        return;
-    }
-    
-    // Convert selected time to 24-hour format number
-    const selectedHour = parseInt(selectedTime.split(':')[0]);
-    
-    // Calculate maximum hours until 11 PM (23:00)
-    const maxHours = 23 - selectedHour;
-    
-    // Clear current options
-    durationSelect.innerHTML = '<option value="" selected disabled>Select duration</option>';
-    
-    // Add duration options up to the maximum allowed
-    for (let i = 1; i <= Math.min(5, maxHours); i++) {
-        const option = document.createElement('option');
-        option.value = i;
-        option.textContent = i + (i === 1 ? ' hour' : ' hours');
-        durationSelect.appendChild(option);
-    }
-    
-    // If no hours are available (e.g., selected time is 11 PM or later)
-    if (maxHours <= 0) {
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = 'No available duration';
-        option.disabled = true;
-        durationSelect.appendChild(option);
-    }
-    
-    // Reset duration selection
-    durationSelect.value = '';
-}
-
-// Function to reset duration options to default
-function resetDurationOptions() {
-    const durationSelect = document.getElementById('duration');
-    durationSelect.innerHTML = `
-        <option value="" selected disabled>Select duration</option>
-        <option value="1">1 hour</option>
-        <option value="2">2 hours</option>
-        <option value="3">3 hours</option>
-        <option value="4">4 hours</option>
-        <option value="5">5 hours</option>
-    `;
-}
-
-// Update booking summary
-function updateSummary() {
-    // Room
-    let roomElement = document.querySelector('input[name="room"]:checked');
-    let roomName = "Not selected";
-    let roomPrice = 0;
-    
-    if(roomElement) {
-        switch(roomElement.value) {
-            case 'standard':
-                roomName = "Standard Room";
-                roomPrice = 40;
-                break;
-            case 'deluxe':
-                roomName = "Deluxe Room";
-                roomPrice = 65;
-                break;
-            case 'vip':
-                roomName = "VIP Room";
-                roomPrice = 99;
-                break;
-        }
-    }
-    
-    document.getElementById('summary-room').textContent = roomName;
-    
-    // Date
-    let date = document.getElementById('date').value;
-    document.getElementById('summary-date').textContent = date ? new Date(date).toLocaleDateString() : "Not selected";
-    
-    // Time
-    let time = document.getElementById('time').value;
-    let timeDisplay = "Not selected";
-    if (time) {
-        // Convert 24-hour format to 12-hour format for display
-        const hour = parseInt(time.split(':')[0]);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
-        timeDisplay = displayHour + ':00 ' + ampm;
-    }
-    document.getElementById('summary-time').textContent = timeDisplay;
-    
-    // Duration
-    let duration = document.getElementById('duration').value;
-    let durationDisplay = "Not selected";
-    if (duration) {
-        durationDisplay = duration + " hour(s)";
+    // Function to update duration options based on selected time
+    function updateDurationOptions() {
+        const timeSelect = document.getElementById('time');
+        const durationSelect = document.getElementById('duration');
+        const selectedTime = timeSelect.value;
         
-        // Show end time if both time and duration are selected
-        if (time) {
-            const startHour = parseInt(time.split(':')[0]);
-            const endHour = startHour + parseInt(duration);
-            const endAmpm = endHour >= 12 ? 'PM' : 'AM';
-            const endDisplayHour = endHour > 12 ? endHour - 12 : (endHour === 0 ? 12 : endHour);
-            durationDisplay += ` (until ${endDisplayHour}:00 ${endAmpm})`;
+        if (!selectedTime) {
+            resetDurationOptions();
+            return;
         }
+        
+        const selectedHour = parseInt(selectedTime.split(':')[0]);
+        const maxHours = 23 - selectedHour;
+        
+        durationSelect.innerHTML = '<option value="" selected disabled>Select duration</option>';
+        
+        for (let i = 1; i <= Math.min(5, maxHours); i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i + (i === 1 ? ' hour' : ' hours');
+            durationSelect.appendChild(option);
+        }
+        
+        if (maxHours <= 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No available duration';
+            option.disabled = true;
+            durationSelect.appendChild(option);
+        }
+        
+        durationSelect.value = '';
     }
-    document.getElementById('summary-duration').textContent = durationDisplay;
-    
-    // Add-ons
-    let addons = [];
-    let addonsTotal = 0;
-    
-    document.querySelectorAll('input[name="addons[]"]:checked').forEach(addon => {
-        switch(addon.value) {
-            case 'food-platter':
-                addons.push("Food Platter (RM 45)");
-                addonsTotal += 45;
-                break;
-            case 'drink-package':
-                addons.push("Drink Package (RM 35)");
-                addonsTotal += 35;
-                break;
-            case 'extra-mic':
-                addons.push("Extra Microphone (RM 10)");
-                addonsTotal += 10;
-                break;
-        }
-    });
-    
-    document.getElementById('summary-addons').textContent = addons.length > 0 ? addons.join(", ") : "None";
-    
-    // Total
-    let total = duration && roomPrice ? (roomPrice * duration) + addonsTotal : 0;
-    document.getElementById('summary-total').textContent = "RM " + total.toFixed(2);
-}
 
-// Form validation
-(function () {
-    'use strict'
-    
-    // Fetch all forms we want to apply validation to
-    var forms = document.querySelectorAll('.needs-validation')
-    
-    // Loop over them and prevent submission
-    Array.prototype.slice.call(forms)
-        .forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                if (!form.checkValidity()) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                }
-                
-                form.classList.add('was-validated')
-            }, false)
-        })
-})();
+    function resetDurationOptions() {
+        const durationSelect = document.getElementById('duration');
+        durationSelect.innerHTML = `
+            <option value="" selected disabled>Select duration</option>
+            <option value="1">1 hour</option>
+            <option value="2">2 hours</option>
+            <option value="3">3 hours</option>
+            <option value="4">4 hours</option>
+            <option value="5">5 hours</option>
+        `;
+    }
+
+    // Update booking summary
+    function updateSummary() {
+        let roomElement = document.querySelector('input[name="room"]:checked');
+        let roomName = "Not selected";
+        let roomPrice = 0;
+        
+        if(roomElement) {
+            switch(roomElement.value) {
+                case 'Standard':
+                    roomName = "Standard Room";
+                    roomPrice = 40;
+                    break;
+                case 'Deluxe':
+                    roomName = "Deluxe Room";
+                    roomPrice = 65;
+                    break;
+                case 'VIP':
+                    roomName = "VIP Room";
+                    roomPrice = 99;
+                    break;
+            }
+        }
+        
+        document.getElementById('summary-room').textContent = roomName;
+        
+        let date = document.getElementById('date').value;
+        document.getElementById('summary-date').textContent = date ? new Date(date).toLocaleDateString() : "Not selected";
+        
+        let time = document.getElementById('time').value;
+        let timeDisplay = "Not selected";
+        if (time) {
+            const hour = parseInt(time.split(':')[0]);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+            timeDisplay = displayHour + ':00 ' + ampm;
+        }
+        document.getElementById('summary-time').textContent = timeDisplay;
+        
+        let duration = document.getElementById('duration').value;
+        let durationDisplay = "Not selected";
+        if (duration) {
+            durationDisplay = duration + " hour(s)";
+            
+            if (time) {
+                const startHour = parseInt(time.split(':')[0]);
+                const endHour = startHour + parseInt(duration);
+                const endAmpm = endHour >= 12 ? 'PM' : 'AM';
+                const endDisplayHour = endHour > 12 ? endHour - 12 : (endHour === 0 ? 12 : endHour);
+                durationDisplay += ` (until ${endDisplayHour}:00 ${endAmpm})`;
+            }
+        }
+        document.getElementById('summary-duration').textContent = durationDisplay;
+        
+        let total = duration && roomPrice ? (roomPrice * duration) : 0;
+        document.getElementById('summary-total').textContent = "RM " + total.toFixed(2);
+    }
+
+    // Form validation
+    (function () {
+        'use strict'
+        
+        var forms = document.querySelectorAll('.needs-validation')
+        
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })();
   </script>
 
   <input name="animation" type="hidden">
