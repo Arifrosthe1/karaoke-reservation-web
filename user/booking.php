@@ -165,11 +165,11 @@
         <div class="container">
             <div class="navbar-brand">
                 <span class="navbar-logo">
-                    <a href="user_dashboard.php">
+                    <a href="user_home.php">
                         <img src="../assets/images/cronykaraoke-1.webp" alt="Crony Karaoke Logo" style="height: 3rem;">
                     </a>
                 </span>
-                <span class="navbar-caption-wrap"><a class="navbar-caption text-black text-primary display-4" href="user_dashboard.php">Crony<br>Karaoke</a></span>
+                <span class="navbar-caption-wrap"><a class="navbar-caption text-black text-primary display-4" href="user_home.php">Crony<br>Karaoke</a></span>
             </div>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbarSupportedContent" data-bs-target="#navbarSupportedContent" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
                 <div class="hamburger">
@@ -182,13 +182,13 @@
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav nav-dropdown ms-auto me-auto" style="margin-right:2rem;" data-app-modern-menu="true">
                     <li class="nav-item">
-                        <a class="nav-link link text-black text-primary display-4" href="user_dashboard.php">Dashboard</a>
+                        <a class="nav-link link text-black text-primary display-4" href="user_home.php">Home</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link link text-black text-primary display-4" href="make_reservation.php">Book Room</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link link text-black text-primary display-4" href="user_dashboard.php#newsletter-promotions">Newsletter</a>
+                        <a class="nav-link link text-black text-primary display-4" href="user_home.php#newsletter-promotions">Newsletter</a>
                     </li>
                 </ul>
                 <div class="navbar-buttons mbr-section-btn d-flex align-items-center gap-2">
@@ -520,7 +520,7 @@
             <div class="col-12 content-head">
                 <div class="mbr-section-head mb-5">
                     <div class="container text-center">
-                        <a href="user_dashboard.php" class="btn btn-light btn-sm">Back to Dashboard</a>
+                        <a href="user_home.php" class="btn btn-light btn-sm">Back to Home</a>
                         <a href="../logout.php" class="btn btn-light btn-sm">Logout</a>
                     </div>
                 </div>
