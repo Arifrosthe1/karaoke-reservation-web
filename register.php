@@ -26,6 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             } else {
                 $error = "Something went wrong. Please try again.";
             }
+            header("Location: login.php");
         }
     }
 }

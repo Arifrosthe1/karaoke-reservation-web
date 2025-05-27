@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if ($user['role'] == 'admin') {
                     header("Location: admin/admin_dashboard.php");
                 } else {
-                    header("Location: user/user_dashboard.php");
+                    header("Location: user/user_home.php");
                 }
                 exit;
             } else {
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 				<div class="card-wrapper wrap">
 					<div class="card-box align-center">
 						<h1 class="card-title mbr-fonts-style mb-4 display-1">
-							<strong>Welcome Back</strong></h1>
+							<strong>Welcome</strong></h1>
 					</div>
 				</div>
 			</div>
