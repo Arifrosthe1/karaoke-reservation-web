@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Store reservation details for confirmation page
             $_SESSION['completed_reservation'] = [
                 'reservationID' => $reservationID,
-                'roomType' => $pending_reservation['roomType'],
+                'roomType' => $pending_reservation['roomType'], // This should be the package name (Standard, Deluxe, VIP)
                 'reservationDate' => $reservationDate,  // Use the formatted date
                 'startTime' => $pending_reservation['startTime'],
                 'endTime' => $pending_reservation['endTime'],
@@ -237,22 +237,12 @@ if (!$package) {
             </div>
         <?php endif; ?>
         
-        <!-- Debug info (remove in production) -->
-        <?php if (isset($_GET['debug'])): ?>
-            <div class="alert alert-info">
-                <strong>Debug Info:</strong><br>
-                Date: <?php echo htmlspecialchars($pending_reservation['reservationDate'] ?? 'Not set'); ?><br>
-                User ID: <?php echo htmlspecialchars($pending_reservation['userID'] ?? 'Not set'); ?><br>
-                Room ID: <?php echo htmlspecialchars($pending_reservation['roomID'] ?? 'Not set'); ?>
-            </div>
-        <?php endif; ?>
-        
         <!-- Booking Summary -->
         <div class="booking-summary">
             <h4 class="mb-3">Booking Summary</h4>
             <div class="row">
                 <div class="col-md-6">
-                    <p><strong>Room Type:</strong> <?php echo htmlspecialchars($package['packageName']); ?></p>
+                    <p><strong>Room Type:</strong> <?php echo htmlspecialchars($package['packageName']); ?> Room</p>
                     <p><strong>Date:</strong> <?php echo date('F j, Y', strtotime($pending_reservation['reservationDate'])); ?></p>
                     <p><strong>Time:</strong> <?php echo date('g:i A', strtotime($pending_reservation['startTime'])); ?> - <?php echo date('g:i A', strtotime($pending_reservation['endTime'])); ?></p>
                 </div>

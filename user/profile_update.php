@@ -1,3 +1,134 @@
+<?php
+include '../dbconfig.php';
+session_start();
+
+// Check if user is logged in
+if (!isset($_SESSION['userID'])) {
+    header("Location: ../login.php");
+    exit();
+}
+
+$userID = $_SESSION['userID'];
+$message = '';
+$messageType = '';
+
+// Fetch current user data
+$query = "SELECT * FROM users WHERE userID = '$userID'";
+$result = mysqli_query($conn, $query);
+$user = mysqli_fetch_assoc($result);
+
+if (!$user) {
+    header("Location: ../login.php");
+    exit();
+}
+
+// Get user's total bookings count
+$bookingQuery = "SELECT COUNT(*) as total_bookings FROM reservations WHERE userID = '$userID'";
+$bookingResult = mysqli_query($conn, $bookingQuery);
+$bookingData = mysqli_fetch_assoc($bookingResult);
+$totalBookings = $bookingData['total_bookings'];
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $fullName = mysqli_real_escape_string($conn, trim($_POST['fullName']));
+    $email = mysqli_real_escape_string($conn, trim($_POST['email']));
+    $phone = mysqli_real_escape_string($conn, preg_replace('/[^0-9]/', '', $_POST['phone'])); // Remove non-numeric characters
+    $currentPassword = $_POST['currentPassword'];
+    $newPassword = $_POST['newPassword'];
+    $confirmPassword = $_POST['confirmPassword'];
+    
+    // Validation
+    $errors = array();
+    
+    if (empty($fullName)) {
+        $errors[] = "Full name is required";
+    }
+    
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Valid email is required";
+    }
+    
+    if (empty($phone) || strlen($phone) < 10) {
+        $errors[] = "Valid phone number is required";
+    }
+    
+    // Check if email already exists for other users
+    $emailCheckQuery = "SELECT userID FROM users WHERE email = '$email' AND userID != '$userID'";
+    $emailCheckResult = mysqli_query($conn, $emailCheckQuery);
+    if (mysqli_num_rows($emailCheckResult) > 0) {
+        $errors[] = "Email address is already taken by another user";
+    }
+    
+    // Password validation if provided
+    if (!empty($currentPassword) || !empty($newPassword) || !empty($confirmPassword)) {
+        if (empty($currentPassword)) {
+            $errors[] = "Current password is required to change password";
+        } else {
+            // Verify current password
+            if (!password_verify($currentPassword, $user['password'])) {
+                $errors[] = "Current password is incorrect";
+            }
+        }
+        
+        if (empty($newPassword)) {
+            $errors[] = "New password is required";
+        } elseif (strlen($newPassword) < 8) {
+            $errors[] = "New password must be at least 8 characters long";
+        }
+        
+        if ($newPassword !== $confirmPassword) {
+            $errors[] = "New passwords do not match";
+        }
+    }
+    
+    if (empty($errors)) {
+        // Update user information
+        $updateQuery = "UPDATE users SET fullName = '$fullName', email = '$email', phone = '$phone'";
+        
+        // Add password update if provided
+        if (!empty($newPassword)) {
+            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+            $updateQuery .= ", password = '$hashedPassword'";
+        }
+        
+        $updateQuery .= " WHERE userID = '$userID'";
+        
+        if (mysqli_query($conn, $updateQuery)) {
+            // Update session data if needed
+            $_SESSION['fullName'] = $fullName;
+            $_SESSION['email'] = $email;
+            
+            // Refresh user data
+            $query = "SELECT * FROM users WHERE userID = '$userID'";
+            $result = mysqli_query($conn, $query);
+            $user = mysqli_fetch_assoc($result);
+            
+            $message = "Profile updated successfully!";
+            $messageType = "success";
+        } else {
+            $message = "Error updating profile: " . mysqli_error($conn);
+            $messageType = "error";
+        }
+    } else {
+        $message = implode("<br>", $errors);
+        $messageType = "error";
+    }
+}
+
+// Format phone number for display
+function formatPhoneNumber($phone) {
+    if (strlen($phone) >= 10) {
+        // Assuming Malaysian format
+        if (substr($phone, 0, 2) == '60') {
+            return '+' . substr($phone, 0, 2) . ' ' . substr($phone, 2, 2) . '-' . substr($phone, 4, 3) . ' ' . substr($phone, 7);
+        } else {
+            return '+60 ' . substr($phone, 1, 2) . '-' . substr($phone, 3, 3) . ' ' . substr($phone, 6);
+        }
+    }
+    return $phone;
+}
+?>
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -149,14 +280,11 @@
 <section data-bs-version="5.1" id="profile-update-form" style="padding-top: 50px; padding-bottom: 90px; background: #edefeb;">
     <div class="container">
         <!-- Success/Error Messages -->
-        <div id="alert-container" style="display: none;">
-            <div class="alert alert-success" role="alert" id="success-alert" style="display: none;">
-                <strong>Success!</strong> Your profile has been updated successfully.
-            </div>
-            <div class="alert alert-danger" role="alert" id="error-alert" style="display: none;">
-                <strong>Error!</strong> <span id="error-message">Something went wrong. Please try again.</span>
-            </div>
+        <?php if (!empty($message)): ?>
+        <div class="alert <?php echo $messageType == 'success' ? 'alert-success' : 'alert-danger'; ?>" role="alert">
+            <strong><?php echo $messageType == 'success' ? 'Success!' : 'Error!'; ?></strong> <?php echo $message; ?>
         </div>
+        <?php endif; ?>
 
         <div class="row">
             <!-- Current Information Display -->
@@ -165,30 +293,30 @@
                     <h3 class="mb-4 text-white text-center"><strong>Current Information</strong></h3>
                     <div class="info-item">
                         <div class="info-label">Full Name</div>
-                        <div class="info-value" id="current-name">John Doe</div>
+                        <div class="info-value"><?php echo htmlspecialchars($user['fullName']); ?></div>
                     </div>
                     <div class="info-item">
                         <div class="info-label">Email Address</div>
-                        <div class="info-value" id="current-email">john.doe@example.com</div>
+                        <div class="info-value"><?php echo htmlspecialchars($user['email']); ?></div>
                     </div>
                     <div class="info-item">
                         <div class="info-label">Phone Number</div>
-                        <div class="info-value" id="current-phone">+60 12-345 6789</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Member Since</div>
-                        <div class="info-value">January 2024</div>
+                        <div class="info-value"><?php echo formatPhoneNumber($user['phone']); ?></div>
                     </div>
                     <div class="info-item">
                         <div class="info-label">Total Bookings</div>
-                        <div class="info-value">15</div>
+                        <div class="info-value"><?php echo $totalBookings; ?></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Member Since</div>
+                        <div class="info-value"><?php echo date('M Y', strtotime($user['createdAt'])); ?></div>
                     </div>
                 </div>
             </div>
 
             <!-- Update Form -->
             <div class="col-md-8">
-                <form id="profile-form" class="profile-form needs-validation" novalidate>
+                <form method="POST" class="profile-form needs-validation" novalidate>
                     <!-- Personal Information Section -->
                     <div class="form-section profile-section">
                         <h2 class="mb-4"><strong>Personal Information</strong></h2>
@@ -196,7 +324,7 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="fullName" class="form-label">Full Name</label>
-                                    <input type="text" class="form-control" id="fullName" name="fullName" value="John Doe" required>
+                                    <input type="text" class="form-control" id="fullName" name="fullName" value="<?php echo htmlspecialchars($user['fullName']); ?>" required>
                                     <div class="invalid-feedback">
                                         Please provide a valid full name.
                                     </div>
@@ -205,7 +333,7 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="email" class="form-label">Email Address</label>
-                                    <input type="email" class="form-control" id="email" name="email" value="john.doe@example.com" required>
+                                    <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required>
                                     <div class="invalid-feedback">
                                         Please provide a valid email address.
                                     </div>
@@ -216,18 +344,11 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="phone" class="form-label">Phone Number</label>
-                                    <input type="tel" class="form-control" id="phone" name="phone" value="+60123456789" required pattern="^(\+?6?01)[0-46-9]-*[0-9]{7,8}$">
+                                    <input type="tel" class="form-control" id="phone" name="phone" value="<?php echo $user['phone']; ?>" required>
                                     <div class="invalid-feedback">
                                         Please provide a valid Malaysian phone number.
                                     </div>
                                     <div class="form-text">Format: +60123456789 or 0123456789</div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="dateOfBirth" class="form-label">Date of Birth (Optional)</label>
-                                    <input type="date" class="form-control" id="dateOfBirth" name="dateOfBirth" max="2006-01-01">
-                                    <div class="form-text">Must be at least 18 years old</div>
                                 </div>
                             </div>
                         </div>
@@ -236,12 +357,15 @@
                     <!-- Security Section -->
                     <div class="form-section profile-section">
                         <h2 class="mb-4"><strong>Security Settings</strong></h2>
+                        <div class="alert alert-info">
+                            <small><strong>Note:</strong> Leave password fields blank if you don't want to change your password.</small>
+                        </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="currentPassword" class="form-label">Current Password</label>
                                     <input type="password" class="form-control" id="currentPassword" name="currentPassword" placeholder="Enter current password">
-                                    <div class="form-text">Leave blank if you don't want to change password</div>
+                                    <div class="form-text">Required only if changing password</div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -267,36 +391,6 @@
                         </div>
                     </div>
 
-                    <!-- Preferences Section -->
-                    <div class="form-section profile-section">
-                        <h2 class="mb-4"><strong>Preferences</strong></h2>
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <label class="form-label">Notification Preferences</label>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="emailNotifications" name="emailNotifications" checked>
-                                        <label class="form-check-label" for="emailNotifications">
-                                            Receive email notifications about bookings and promotions
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="smsNotifications" name="smsNotifications">
-                                        <label class="form-check-label" for="smsNotifications">
-                                            Receive SMS notifications for booking confirmations
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="promotionalEmails" name="promotionalEmails" checked>
-                                        <label class="form-check-label" for="promotionalEmails">
-                                            Subscribe to promotional emails and special offers
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Form Actions -->
                     <div class="row mt-4">
                         <div class="col-12 d-flex justify-content-between">
@@ -305,7 +399,7 @@
                                 Back to Dashboard
                             </a>
                             <div>
-                                <button type="button" class="btn btn-outline-secondary btn-lg me-2" onclick="resetForm()">
+                                <button type="reset" class="btn btn-outline-secondary btn-lg me-2">
                                     <span class="mbr-iconfont mobi-mbri-refresh mobi-mbri me-2"></span>
                                     Reset
                                 </button>
@@ -350,22 +444,18 @@
   <script src="../assets/formoid/formoid.min.js"></script>
 
   <script>
-    // Form validation and submission
+    // Form validation
     (function () {
         'use strict'
         
-        // Fetch all forms we want to apply validation to
         var forms = document.querySelectorAll('.needs-validation')
         
-        // Loop over them and prevent submission
         Array.prototype.slice.call(forms)
             .forEach(function (form) {
                 form.addEventListener('submit', function (event) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    
-                    if (form.checkValidity()) {
-                        handleFormSubmission()
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
                     }
                     
                     form.classList.add('was-validated')
@@ -385,97 +475,32 @@
         }
     })
 
-    // Handle form submission
-    function handleFormSubmission() {
-        // Show loading state
-        var submitBtn = document.querySelector('button[type="submit"]')
-        var originalText = submitBtn.innerHTML
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Updating...'
-        submitBtn.disabled = true
-        
-        // Simulate API call
-        setTimeout(function() {
-            // Reset button
-            submitBtn.innerHTML = originalText
-            submitBtn.disabled = false
-            
-            // Show success message
-            showAlert('success', 'Your profile has been updated successfully!')
-            
-            // Update current info display
-            updateCurrentInfo()
-            
-            // Clear password fields
-            document.getElementById('currentPassword').value = ''
-            document.getElementById('newPassword').value = ''
-            document.getElementById('confirmPassword').value = ''
-            
-        }, 2000)
-    }
-
-    // Update current information display
-    function updateCurrentInfo() {
-        document.getElementById('current-name').textContent = document.getElementById('fullName').value
-        document.getElementById('current-email').textContent = document.getElementById('email').value
-        document.getElementById('current-phone').textContent = document.getElementById('phone').value
-    }
-
-    // Show alert messages
-    function showAlert(type, message) {
-        var alertContainer = document.getElementById('alert-container')
-        var successAlert = document.getElementById('success-alert')
-        var errorAlert = document.getElementById('error-alert')
-        
-        // Hide all alerts first
-        successAlert.style.display = 'none'
-        errorAlert.style.display = 'none'
-        
-        if (type === 'success') {
-            successAlert.style.display = 'block'
-        } else {
-            document.getElementById('error-message').textContent = message
-            errorAlert.style.display = 'block'
-        }
-        
-        alertContainer.style.display = 'block'
-        
-        // Scroll to top to show alert
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-        
-        // Auto hide after 5 seconds
-        setTimeout(function() {
-            alertContainer.style.display = 'none'
-        }, 5000)
-    }
-
-    // Reset form to original values
-    function resetForm() {
-        if (confirm('Are you sure you want to reset all changes?')) {
-            document.getElementById('profile-form').reset()
-            document.getElementById('fullName').value = 'John Doe'
-            document.getElementById('email').value = 'john.doe@example.com'
-            document.getElementById('phone').value = '+60123456789'
-            document.getElementById('emailNotifications').checked = true
-            document.getElementById('promotionalEmails').checked = true
-            document.getElementById('smsNotifications').checked = false
-            
-            // Remove validation classes
-            document.getElementById('profile-form').classList.remove('was-validated')
-        }
-    }
-
     // Phone number formatting
     document.getElementById('phone').addEventListener('input', function(e) {
         var value = e.target.value.replace(/\D/g, '')
         
+        // Handle Malaysian phone numbers
         if (value.startsWith('60')) {
-            e.target.value = '+' + value
+            // Already has country code
+            e.target.value = value
         } else if (value.startsWith('0')) {
-            e.target.value = '+6' + value
-        } else if (value.length > 0 && !value.startsWith('1')) {
-            e.target.value = '+601' + value
+            // Local number, add country code
+            e.target.value = '6' + value
+        } else if (value.length > 0) {
+            // Assume it's missing the leading 0
+            e.target.value = '601' + value
         }
     })
+
+    // Auto-hide alert messages after 5 seconds
+    <?php if (!empty($message)): ?>
+    setTimeout(function() {
+        var alert = document.querySelector('.alert');
+        if (alert) {
+            alert.style.display = 'none';
+        }
+    }, 5000);
+    <?php endif; ?>
   </script>
 
   <input name="animation" type="hidden">

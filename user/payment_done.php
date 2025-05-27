@@ -16,6 +16,12 @@ if (!isset($_SESSION['completed_reservation'])) {
 $completed_reservation = $_SESSION['completed_reservation'];
 $bookingReference = '#CK' . str_pad($completed_reservation['reservationID'], 5, '0', STR_PAD_LEFT);
 
+// Function to format room type display
+function formatRoomType($roomType) {
+    // The roomType should be the package name like "Standard", "Deluxe", "VIP"
+    return htmlspecialchars($roomType) . " Room";
+}
+
 // Clear the completed reservation from session after displaying
 // (We'll keep it for this page load, but could clear it after)
 ?>
@@ -150,7 +156,7 @@ $bookingReference = '#CK' . str_pad($completed_reservation['reservationID'], 5, 
               </div>
               <div class="col-md-6">
                 <h5 class="mb-3">Payment Summary</h5>
-                <p><strong>Room Type:</strong> <?php echo htmlspecialchars($completed_reservation['roomType'] == 1 ? 'Standard Room' : ($completed_reservation['roomType'] == 2 ? 'Deluxe Room' : 'VIP Room')); ?></p>
+                <p><strong>Room Type:</strong> <?php echo formatRoomType($completed_reservation['roomType']); ?></p>
                 <p><strong>Payment Method:</strong> <?php echo htmlspecialchars($completed_reservation['paymentMethod']); ?></p>
                 <p><strong>Amount Paid:</strong> RM <?php echo number_format($completed_reservation['totalPrice'], 2); ?></p>
                 <p><span class="badge bg-success">PAID</span></p>
@@ -204,4 +210,5 @@ $bookingReference = '#CK' . str_pad($completed_reservation['reservationID'], 5, 
 // Clear the completed reservation from session after displaying
 // Comment out if you want to keep it for debugging
 // unset($_SESSION['completed_reservation']);
-?>
+?></document_content>
+</invoke>

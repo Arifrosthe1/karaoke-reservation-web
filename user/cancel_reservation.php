@@ -1,3 +1,104 @@
+<?php
+include '../dbconfig.php';
+session_start();
+
+// Check if user is logged in
+if (!isset($_SESSION['userID'])) {
+    header("Location: ../login.php");
+    exit();
+}
+
+$userID = $_SESSION['userID'];
+$success_message = '';
+$error_message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_reservation') {
+    $reservationID = $_POST['reservation'];
+    $reason = $_POST['reason'] ?? '';
+    $additional_comments = $_POST['additional_comments'] ?? '';
+    
+    // Combine reason and additional comments
+    $cancellation_info = '';
+    if (!empty($reason)) {
+        $cancellation_info = "Cancellation Reason: " . $reason;
+    }
+    if (!empty($additional_comments)) {
+        if (!empty($cancellation_info)) {
+            $cancellation_info .= "\nAdditional Comments: " . $additional_comments;
+        } else {
+            $cancellation_info = "Additional Comments: " . $additional_comments;
+        }
+    }
+    
+    try {
+        // Start transaction to ensure both reservation and payment are updated together
+        $conn->begin_transaction();
+        
+        // Verify that the reservation belongs to the current user and can be cancelled
+        // Also check that the reservation is in the future
+        $verify_sql = "SELECT r.*, ro.roomName, p.packageName 
+                      FROM reservations r 
+                      JOIN rooms ro ON r.roomID = ro.roomID 
+                      JOIN packages p ON ro.packageID = p.packageID 
+                      WHERE r.reservationID = ? AND r.userID = ? AND r.status != 'cancelled'
+                      AND (r.reservationDate > CURDATE() OR 
+                          (r.reservationDate = CURDATE() AND r.startTime > CURTIME()))";
+        $verify_stmt = $conn->prepare($verify_sql);
+        $verify_stmt->bind_param("ii", $reservationID, $userID);
+        $verify_stmt->execute();
+        $result = $verify_stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            throw new Exception("Reservation not found, cannot be cancelled, or has already passed.");
+        }
+        
+        // Update the reservation status to cancelled and save cancellation info
+        $update_reservation_sql = "UPDATE reservations SET status = 'cancelled', addInfo = ? WHERE reservationID = ? AND userID = ?";
+        $update_reservation_stmt = $conn->prepare($update_reservation_sql);
+        $update_reservation_stmt->bind_param("sii", $cancellation_info, $reservationID, $userID);
+        
+        if (!$update_reservation_stmt->execute()) {
+            throw new Exception("Failed to cancel reservation. Please try again.");
+        }
+        
+        // Update the payment status to 'refunded' for this reservation
+        $update_payment_sql = "UPDATE payments SET paymentStatus = 'refunded' WHERE reservationID = ?";
+        $update_payment_stmt = $conn->prepare($update_payment_sql);
+        $update_payment_stmt->bind_param("i", $reservationID);
+        
+        if (!$update_payment_stmt->execute()) {
+            throw new Exception("Failed to process refund. Please contact support.");
+        }
+        
+        // Commit the transaction
+        $conn->commit();
+        
+        $success_message = "Your reservation has been cancelled successfully. Refund will be processed within 3-5 business days.";
+        
+    } catch (Exception $e) {
+        // Rollback the transaction on error
+        $conn->rollback();
+        $error_message = $e->getMessage();
+    }
+}
+
+// Fetch user's active reservations (confirmed or pending) that are in the future only
+$sql = "SELECT r.*, ro.roomName, p.packageName, p.pricePerHour
+        FROM reservations r 
+        JOIN rooms ro ON r.roomID = ro.roomID 
+        JOIN packages p ON ro.packageID = p.packageID 
+        WHERE r.userID = ? AND r.status IN ('confirmed', 'pending') 
+        AND (r.reservationDate > CURDATE() OR 
+            (r.reservationDate = CURDATE() AND r.startTime > CURTIME()))
+        ORDER BY r.reservationDate ASC, r.startTime ASC";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $userID);
+$stmt->execute();
+$reservations = $stmt->get_result();
+
+?>
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -28,6 +129,7 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.1);
       margin-bottom: 20px;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
     }
     .reservation-card:hover {
       transform: translateY(-3px);
@@ -97,6 +199,13 @@
       padding-left: 15px;
       margin-bottom: 15px;
     }
+    .no-reservations {
+      text-align: center;
+      padding: 50px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
   </style>
 </head>
 <body>
@@ -148,7 +257,7 @@
         <div class="row justify-content-center">
             <div class="col-12 text-center">
                 <h1 class="display-3 fw-bold">Cancel Your Reservation</h1>
-                <p class="lead">Select the booking you want to cancel and provide a reason</p>
+                <p class="lead">Select the upcoming booking you want to cancel and provide a reason</p>
             </div>
         </div>
     </div>
@@ -157,105 +266,69 @@
 <section data-bs-version="5.1" id="cancel-reservation" style="padding-top: 50px; padding-bottom: 90px; background: #edefeb;">
     <div class="container">
         <!-- Alert Messages -->
-        <div id="success-alert" class="alert alert-success alert-dismissible fade" role="alert" style="display: none;">
-            <strong>Success!</strong> Your reservation has been cancelled successfully.
+        <?php if (!empty($success_message)): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <strong>Success!</strong> <?php echo htmlspecialchars($success_message); ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
+        <?php endif; ?>
         
-        <div id="error-alert" class="alert alert-danger alert-dismissible fade" role="alert" style="display: none;">
-            <strong>Error!</strong> <span id="error-message">Unable to cancel reservation. Please try again.</span>
+        <?php if (!empty($error_message)): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Error!</strong> <?php echo htmlspecialchars($error_message); ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
+        <?php endif; ?>
 
-        <form id="cancelForm" class="needs-validation" novalidate>
+        <?php if ($reservations->num_rows > 0): ?>
+        <form id="cancelForm" method="POST" class="needs-validation" novalidate>
+            <input type="hidden" name="action" value="cancel_reservation">
+            
             <!-- Step 1: Select Reservation to Cancel -->
             <div class="form-section">
-                <h2 class="text-center mb-4"><strong>Step 1: Select Reservation to Cancel</strong></h2>
+                <h2 class="text-center mb-4"><strong>Step 1: Select Upcoming Reservation to Cancel</strong></h2>
                 <div class="row" id="reservations-list">
-                    <!-- Sample reservations - in real implementation, these would be populated from database -->
+                    <?php while ($reservation = $reservations->fetch_assoc()): 
+                        // Calculate duration in hours
+                        $start = new DateTime($reservation['startTime']);
+                        $end = new DateTime($reservation['endTime']);
+                        $duration = $start->diff($end);
+                        $duration_hours = $duration->h + ($duration->i / 60);
+                        $duration_text = $duration_hours == 1 ? "1 hour" : $duration_hours . " hours";
+                        
+                        // Format date
+                        $date = new DateTime($reservation['reservationDate']);
+                        $formatted_date = $date->format('F j, Y');
+                        
+                        // Format time
+                        $start_time = $start->format('g:i A');
+                        $end_time = $end->format('g:i A');
+                        $time_range = $start_time . " - " . $end_time;
+                        
+                        // Format price
+                        $total_price = "RM " . number_format($reservation['totalPrice'], 2);
+                    ?>
                     <div class="col-md-6 mb-3">
-                        <div class="reservation-card" onclick="selectReservation('RES001', 'Standard Room', '2025-05-28', '19:00', '2 hours', 'RM 80.00')">
+                        <div class="reservation-card" onclick="selectReservation('<?php echo $reservation['reservationID']; ?>', '<?php echo htmlspecialchars($reservation['packageName'] . ' - ' . $reservation['roomName']); ?>', '<?php echo $formatted_date; ?>', '<?php echo $time_range; ?>', '<?php echo $duration_text; ?>', '<?php echo $total_price; ?>')">
                             <div class="d-flex justify-content-between align-items-start mb-3">
-                                <h5><strong>Standard Room</strong></h5>
-                                <span class="badge status-confirmed status-badge">Confirmed</span>
+                                <h5><strong><?php echo htmlspecialchars($reservation['packageName'] . ' - ' . $reservation['roomName']); ?></strong></h5>
+                                <span class="badge status-<?php echo $reservation['status']; ?> status-badge"><?php echo ucfirst($reservation['status']); ?></span>
                             </div>
                             <div class="reservation-details">
-                                <p class="mb-1"><strong>Date:</strong> May 28, 2025</p>
-                                <p class="mb-1"><strong>Time:</strong> 7:00 PM - 9:00 PM</p>
-                                <p class="mb-1"><strong>Duration:</strong> 2 hours</p>
-                                <p class="mb-0"><strong>Total:</strong> RM 80.00</p>
+                                <p class="mb-1"><strong>Date:</strong> <?php echo $formatted_date; ?></p>
+                                <p class="mb-1"><strong>Time:</strong> <?php echo $time_range; ?></p>
+                                <p class="mb-1"><strong>Duration:</strong> <?php echo $duration_text; ?></p>
+                                <p class="mb-0"><strong>Total:</strong> <?php echo $total_price; ?></p>
                             </div>
                             <div class="form-check mt-3">
-                                <input class="form-check-input reservation-select" type="radio" name="reservation" id="res-001" value="RES001" required>
-                                <label class="form-check-label" for="res-001">
+                                <input class="form-check-input reservation-select" type="radio" name="reservation" id="res-<?php echo $reservation['reservationID']; ?>" value="<?php echo $reservation['reservationID']; ?>" required>
+                                <label class="form-check-label" for="res-<?php echo $reservation['reservationID']; ?>">
                                     Select this reservation
                                 </label>
                             </div>
                         </div>
                     </div>
-
-                    <div class="col-md-6 mb-3">
-                        <div class="reservation-card" onclick="selectReservation('RES002', 'Deluxe Room', '2025-05-30', '15:00', '3 hours', 'RM 195.00')">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <h5><strong>Deluxe Room</strong></h5>
-                                <span class="badge status-confirmed status-badge">Confirmed</span>
-                            </div>
-                            <div class="reservation-details">
-                                <p class="mb-1"><strong>Date:</strong> May 30, 2025</p>
-                                <p class="mb-1"><strong>Time:</strong> 3:00 PM - 6:00 PM</p>
-                                <p class="mb-1"><strong>Duration:</strong> 3 hours</p>
-                                <p class="mb-0"><strong>Total:</strong> RM 195.00</p>
-                            </div>
-                            <div class="form-check mt-3">
-                                <input class="form-check-input reservation-select" type="radio" name="reservation" id="res-002" value="RES002" required>
-                                <label class="form-check-label" for="res-002">
-                                    Select this reservation
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <div class="reservation-card" onclick="selectReservation('RES003', 'VIP Room', '2025-06-02', '20:00', '4 hours', 'RM 396.00')">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <h5><strong>VIP Room</strong></h5>
-                                <span class="badge status-pending status-badge">Pending</span>
-                            </div>
-                            <div class="reservation-details">
-                                <p class="mb-1"><strong>Date:</strong> June 2, 2025</p>
-                                <p class="mb-1"><strong>Time:</strong> 8:00 PM - 12:00 AM</p>
-                                <p class="mb-1"><strong>Duration:</strong> 4 hours</p>
-                                <p class="mb-0"><strong>Total:</strong> RM 396.00</p>
-                            </div>
-                            <div class="form-check mt-3">
-                                <input class="form-check-input reservation-select" type="radio" name="reservation" id="res-003" value="RES003" required>
-                                <label class="form-check-label" for="res-003">
-                                    Select this reservation
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <div class="reservation-card" onclick="selectReservation('RES004', 'Standard Room', '2025-06-05', '16:00', '1 hour', 'RM 40.00')">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <h5><strong>Standard Room</strong></h5>
-                                <span class="badge status-confirmed status-badge">Confirmed</span>
-                            </div>
-                            <div class="reservation-details">
-                                <p class="mb-1"><strong>Date:</strong> June 5, 2025</p>
-                                <p class="mb-1"><strong>Time:</strong> 4:00 PM - 5:00 PM</p>
-                                <p class="mb-1"><strong>Duration:</strong> 1 hour</p>
-                                <p class="mb-0"><strong>Total:</strong> RM 40.00</p>
-                            </div>
-                            <div class="form-check mt-3">
-                                <input class="form-check-input reservation-select" type="radio" name="reservation" id="res-004" value="RES004" required>
-                                <label class="form-check-label" for="res-004">
-                                    Select this reservation
-                                </label>
-                            </div>
-                        </div>
-                    </div>
+                    <?php endwhile; ?>
                 </div>
                 <div class="invalid-feedback">
                     Please select a reservation to cancel.
@@ -302,6 +375,13 @@
                 </div>
             </div>
         </form>
+        <?php else: ?>
+        <div class="no-reservations">
+            <h3>No Upcoming Reservations</h3>
+            <p>You don't have any upcoming reservations that can be cancelled.</p>
+            <a href="user_dashboard.php" class="btn btn-primary">Back to Dashboard</a>
+        </div>
+        <?php endif; ?>
     </div>
 </section>
 
@@ -352,103 +432,10 @@
     // Update cancellation summary
     function updateCancelSummary(room, date, time, duration, total) {
         document.getElementById('cancel-room').textContent = room || "Not selected";
-        
-        // Format date
-        if (date) {
-            const dateObj = new Date(date);
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            document.getElementById('cancel-date').textContent = dateObj.toLocaleDateString('en-US', options);
-        } else {
-            document.getElementById('cancel-date').textContent = "Not selected";
-        }
-        
-        // Format time
-        if (time) {
-            const [hours, minutes] = time.split(':');
-            const hour = parseInt(hours);
-            const ampm = hour >= 12 ? 'PM' : 'AM';
-            const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
-            
-            // Calculate end time based on duration
-            if (duration) {
-                const durationHours = parseInt(duration.split(' ')[0]);
-                const endHour = hour + durationHours;
-                const endAmpm = endHour >= 12 ? 'PM' : 'AM';
-                const endDisplayHour = endHour > 12 ? endHour - 12 : (endHour === 0 ? 12 : endHour);
-                document.getElementById('cancel-time').textContent = `${displayHour}:00 ${ampm} - ${endDisplayHour}:00 ${endAmpm}`;
-            } else {
-                document.getElementById('cancel-time').textContent = `${displayHour}:00 ${ampm}`;
-            }
-        } else {
-            document.getElementById('cancel-time').textContent = "Not selected";
-        }
-        
+        document.getElementById('cancel-date').textContent = date || "Not selected";
+        document.getElementById('cancel-time').textContent = time || "Not selected";
         document.getElementById('cancel-duration').textContent = duration || "Not selected";
         document.getElementById('cancel-refund').textContent = total || "RM 0.00";
-    }
-
-    // Form submission
-    document.getElementById('cancelForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        if (!this.checkValidity()) {
-            e.stopPropagation();
-            this.classList.add('was-validated');
-            return;
-        }
-        
-        // Get selected reservation
-        const selectedReservation = document.querySelector('input[name="reservation"]:checked');
-        if (!selectedReservation) {
-            showError('Please select a reservation to cancel.');
-            return;
-        }
-        
-        // Simulate cancellation process
-        const submitBtn = document.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Processing...';
-        
-        // Simulate API call
-        setTimeout(() => {
-            // Success simulation
-            showSuccess();
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-            
-            // Reset form after success
-            setTimeout(() => {
-                this.reset();
-                document.querySelectorAll('.reservation-card').forEach(card => {
-                    card.classList.remove('selected');
-                });
-                updateCancelSummary('', '', '', '', '');
-            }, 2000);
-        }, 2000);
-    });
-
-    function showSuccess() {
-        const alert = document.getElementById('success-alert');
-        alert.style.display = 'block';
-        alert.classList.add('show');
-        setTimeout(() => {
-            alert.classList.remove('show');
-            setTimeout(() => alert.style.display = 'none', 150);
-        }, 5000);
-    }
-
-    function showError(message) {
-        const alert = document.getElementById('error-alert');
-        const messageSpan = document.getElementById('error-message');
-        messageSpan.textContent = message;
-        alert.style.display = 'block';
-        alert.classList.add('show');
-        setTimeout(() => {
-            alert.classList.remove('show');
-            setTimeout(() => alert.style.display = 'none', 150);
-        }, 5000);
     }
 
     // Form validation
@@ -469,6 +456,23 @@
                 }, false)
             })
     })();
+
+    // Show loading state on form submission
+    document.getElementById('cancelForm')?.addEventListener('submit', function(e) {
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Processing...';
+        
+        // Re-enable button after a delay if form validation fails
+        setTimeout(() => {
+            if (!this.checkValidity()) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }, 100);
+    });
 </script>
 
 <input name="animation" type="hidden">

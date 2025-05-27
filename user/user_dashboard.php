@@ -307,7 +307,7 @@ $username = $_SESSION['fullName'];
             echo "<span class='text-muted me-1'>N/A</span>";
         }
 
-        echo    "<a href='view_invoice.php?id={$reservationID}' class='btn-invoice btn btn-sm me-1'>Invoice</a>
+        echo    "<a href='booking.php?id={$reservationID}' class='btn-invoice btn btn-sm me-1'>Detail</a>
                 </td>
               </tr>";
     }
