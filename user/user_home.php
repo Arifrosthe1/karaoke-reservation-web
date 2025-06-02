@@ -21,9 +21,9 @@ $username = $_SESSION['fullName'];
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <link rel="shortcut icon" href="../assets/images/cronykaraoke.webp" type="image/x-icon">
-  <meta name="description" content="Crony Karaoke - User Dashboard">
+  <meta name="description" content="Crony Karaoke - User Home">
 
-  <title>User Dashboard</title>
+  <title>User Home</title>
   <link rel="stylesheet" href="../assets/web/assets/mobirise-icons2/mobirise2.css">
   <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap-grid.min.css">
@@ -107,11 +107,11 @@ $username = $_SESSION['fullName'];
         <div class="container">
             <div class="navbar-brand">
                 <span class="navbar-logo">
-                    <a href="user_dashboard.php">
+                    <a href="user_home.php">
                         <img src="../assets/images/cronykaraoke-1.webp" alt="Crony Karaoke Logo" style="height: 3rem;">
                     </a>
                 </span>
-                <span class="navbar-caption-wrap"><a class="navbar-caption text-black text-primary display-4" href="user_dashboard.php#top">Crony<br>Karaoke</a></span>
+                <span class="navbar-caption-wrap"><a class="navbar-caption text-black text-primary display-4" href="user_home.php#top">Crony<br>Karaoke</a></span>
             </div>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbarSupportedContent" data-bs-target="#navbarSupportedContent" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
                 <div class="hamburger">
@@ -127,7 +127,7 @@ $username = $_SESSION['fullName'];
                         <a class="nav-link link text-black text-primary display-4" href="make_reservation.php">Book Room</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link link text-black text-primary display-4" href="user_dashboard.php#newsletter-promotions">Newsletter</a>
+                        <a class="nav-link link text-black text-primary display-4" href="user_home.php#newsletter-promotions">Newsletter</a>
                     </li>
                 </ul>
                 <div class="navbar-buttons mbr-section-btn d-flex align-items-center gap-2">
@@ -158,6 +158,84 @@ $username = $_SESSION['fullName'];
         </div>
     </div>
 </section>
+
+<section data-bs-version="5.1" class="features6 cid-uLCcr1YAXA" id="upcoming-bookings" style="padding-top: 30px; padding-bottom: 90px; background: #edefeb;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12 content-head">
+                <div class="mbr-section-head mb-5">
+                    <h4 class="mbr-section-title mbr-fonts-style align-center mb-0 display-2">
+                        <strong>Your Upcoming Bookings</strong>
+                    </h4>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Room</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+<?php
+    include '../dbconfig.php'; // Update with your actual DB connection file
+    $userID = $_SESSION['userID'];
+    $today = date('Y-m-d');
+
+    $query = "SELECT r.reservationID, rm.roomName, r.reservationDate, r.startTime, r.endTime, r.status
+              FROM reservations r
+              JOIN rooms rm ON r.roomID = rm.roomID
+              WHERE r.userID = ? AND r.reservationDate >= ?
+              ORDER BY r.reservationDate ASC, r.startTime ASC";
+
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("is", $userID, $today);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $reservationID = $row['reservationID'];
+        $roomName = $row['roomName'];
+        $date = date("d M Y", strtotime($row['reservationDate']));
+        $startTime = date("H:i", strtotime($row['startTime']));
+        $duration = round((strtotime($row['endTime']) - strtotime($row['startTime'])) / 3600, 1); // in hours
+        $status = ucfirst($row['status']);
+
+        echo "<tr>
+                <td>{$roomName}</td>
+                <td>{$date}</td>
+                <td>{$startTime}</td>
+                <td>{$duration} hour(s)</td>
+                <td><span class='badge' style='background-color: " . ($status == 'Confirmed' ? '#28a745' : ($status == 'Cancelled' ? '#dc3545' : '#ffc107')) . "; color: #fff;'>{$status}</span></td>
+                <td>";
+
+        if ($row['status'] != 'cancelled' && $row['reservationDate'] >= $today) {
+            echo "<a href='cancel_reservation.php?id={$reservationID}' class='btn-cancel btn btn-sm me-1'>Cancel</a>";
+        } else {
+            echo "<span class='text-muted me-1'>N/A</span>";
+        }
+
+        echo    "<a href='view_invoice.php?id={$reservationID}' class='btn-invoice btn btn-sm me-1'>Detail</a>
+                </td>
+              </tr>";
+    }
+
+    $stmt->close();
+?>
+</tbody>
+
+            </table>
+        </div>
+    </div>
+</section>
+
 <section data-bs-version="5.1" class="features6 cid-uLCcr1YAXA" id="dashboard-cards" style="padding-top: 30px; padding-bottom: 60px; background: #edefeb;">
     <div class="container">
         <div class="row">
@@ -240,83 +318,6 @@ $username = $_SESSION['fullName'];
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</section>
-
-<section data-bs-version="5.1" class="features6 cid-uLCcr1YAXA" id="upcoming-bookings" style="padding-top: 30px; padding-bottom: 90px; background: #edefeb;">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-12 content-head">
-                <div class="mbr-section-head mb-5">
-                    <h4 class="mbr-section-title mbr-fonts-style align-center mb-0 display-2">
-                        <strong>Your Upcoming Bookings</strong>
-                    </h4>
-                </div>
-            </div>
-        </div>
-        
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Room</th>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Duration</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-<?php
-    include '../dbconfig.php'; // Update with your actual DB connection file
-    $userID = $_SESSION['userID'];
-    $today = date('Y-m-d');
-
-    $query = "SELECT r.reservationID, rm.roomName, r.reservationDate, r.startTime, r.endTime, r.status
-              FROM reservations r
-              JOIN rooms rm ON r.roomID = rm.roomID
-              WHERE r.userID = ? AND r.reservationDate >= ?
-              ORDER BY r.reservationDate ASC, r.startTime ASC";
-
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("is", $userID, $today);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    while ($row = $result->fetch_assoc()) {
-        $reservationID = $row['reservationID'];
-        $roomName = $row['roomName'];
-        $date = date("d M Y", strtotime($row['reservationDate']));
-        $startTime = date("H:i", strtotime($row['startTime']));
-        $duration = round((strtotime($row['endTime']) - strtotime($row['startTime'])) / 3600, 1); // in hours
-        $status = ucfirst($row['status']);
-
-        echo "<tr>
-                <td>{$roomName}</td>
-                <td>{$date}</td>
-                <td>{$startTime}</td>
-                <td>{$duration} hour(s)</td>
-                <td><span class='badge' style='background-color: " . ($status == 'Confirmed' ? '#28a745' : ($status == 'Cancelled' ? '#dc3545' : '#ffc107')) . "; color: #fff;'>{$status}</span></td>
-                <td>";
-
-        if ($row['status'] != 'cancelled' && $row['reservationDate'] >= $today) {
-            echo "<a href='cancel_reservation.php?id={$reservationID}' class='btn-cancel btn btn-sm me-1'>Cancel</a>";
-        } else {
-            echo "<span class='text-muted me-1'>N/A</span>";
-        }
-
-        echo    "<a href='booking.php?id={$reservationID}' class='btn-invoice btn btn-sm me-1'>Detail</a>
-                </td>
-              </tr>";
-    }
-
-    $stmt->close();
-?>
-</tbody>
-
-            </table>
         </div>
     </div>
 </section>

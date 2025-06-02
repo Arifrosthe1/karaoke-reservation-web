@@ -152,70 +152,105 @@ function formatPhoneNumber($phone) {
   <link rel="preload" as="style" href="../assets/mobirise/css/mbr-additional.css?v=f0jscm"><link rel="stylesheet" href="../assets/mobirise/css/mbr-additional.css?v=f0jscm" type="text/css">
 
   <style>
-    .profile-form {
+    .profile-container {
       background: white;
-      padding: 30px;
       border-radius: 10px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      overflow: hidden;
     }
-    .form-section {
+    .profile-header {
+      background: linear-gradient(45deg, #493d9e, #8571ff);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    .profile-content {
+      padding: 40px;
+    }
+    .info-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 25px;
       margin-bottom: 30px;
     }
-    .form-label {
-      font-weight: 600;
-      color: #333;
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #e9ecef;
     }
-    .profile-section {
-      background: #f9f9f9;
-      border-radius: 10px;
-      padding: 20px;
+    .info-row:last-child {
+      border-bottom: none;
+    }
+    .info-label {
+      font-weight: 600;
+      color: #495057;
+    }
+    .info-value {
+      color: #212529;
+    }
+    .form-section {
+      margin-bottom: 35px;
+    }
+    .form-section h3 {
+      color: #493d9e;
       margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e9ecef;
+    }
+    .form-control {
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      padding: 12px 15px;
+      font-size: 14px;
+    }
+    .form-control:focus {
+      border-color: #493d9e;
+      box-shadow: 0 0 0 0.2rem rgba(73, 61, 158, 0.25);
     }
     .btn-primary {
       background: #493d9e;
       border-color: #493d9e;
+      padding: 12px 30px;
+      border-radius: 6px;
+      font-weight: 500;
     }
     .btn-primary:hover {
       background: #3d3486;
       border-color: #3d3486;
     }
-    .page-header {
-      background: linear-gradient(45deg, #493d9e, #8571ff);
-      color: white;
-      padding: 60px 0;
-      margin-bottom: 40px;
-    }
-    .current-info-card {
-      background: linear-gradient(45deg, #493d9e, #8571ff);
-      color: white;
-      border-radius: 10px;
-      padding: 20px;
-      height: 100%;
-    }
-    .info-item {
-      padding: 10px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.2);
-    }
-    .info-item:last-child {
-      border-bottom: none;
-    }
-    .info-label {
-      font-weight: 600;
-      opacity: 0.9;
-    }
-    .info-value {
-      font-size: 1.1rem;
-    }
     .btn-secondary {
       background: #6c757d;
       border-color: #6c757d;
+      padding: 12px 30px;
+      border-radius: 6px;
+      font-weight: 500;
     }
-    .btn-secondary:hover {
-      background: #545b62;
-      border-color: #545b62;
+    .btn-outline-secondary {
+      border-color: #6c757d;
+      color: #6c757d;
+      padding: 12px 30px;
+      border-radius: 6px;
+      font-weight: 500;
     }
     .alert {
-      border-radius: 10px;
+      border-radius: 8px;
+      border: none;
+      padding: 15px 20px;
+    }
+    .password-note {
+      background: #e7f3ff;
+      border: 1px solid #bee5eb;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .form-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 20px;
+      border-top: 1px solid #e9ecef;
     }
   </style>
 </head>
@@ -266,18 +301,7 @@ function formatPhoneNumber($phone) {
     </nav>
 </section>
 
-<section class="page-header" style="padding-top: 150px; padding-bottom: 40px; margin-bottom: 0;">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-12 text-center">
-                <h1 class="display-3 fw-bold">Update Your Profile</h1>
-                <p class="lead">Keep your information up to date for better service</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section data-bs-version="5.1" id="profile-update-form" style="padding-top: 50px; padding-bottom: 90px; background: #edefeb;">
+<section data-bs-version="5.1" id="profile-update-form" style="padding-top: 150px; padding-bottom: 90px; background: #edefeb;">
     <div class="container">
         <!-- Success/Error Messages -->
         <?php if (!empty($message)): ?>
@@ -286,131 +310,113 @@ function formatPhoneNumber($phone) {
         </div>
         <?php endif; ?>
 
-        <div class="row">
-            <!-- Current Information Display -->
-            <div class="col-md-4">
-                <div class="current-info-card d-flex flex-column">
-                    <h3 class="mb-4 text-white text-center"><strong>Current Information</strong></h3>
-                    <div class="info-item">
-                        <div class="info-label">Full Name</div>
-                        <div class="info-value"><?php echo htmlspecialchars($user['fullName']); ?></div>
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="profile-container">
+                    <!-- Profile Header -->
+                    <div class="profile-header">
+                        <h1 class="mb-2">Update Profile</h1>
+                        <p class="mb-0">Keep your information up to date</p>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Email Address</div>
-                        <div class="info-value"><?php echo htmlspecialchars($user['email']); ?></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Phone Number</div>
-                        <div class="info-value"><?php echo formatPhoneNumber($user['phone']); ?></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Total Bookings</div>
-                        <div class="info-value"><?php echo $totalBookings; ?></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Member Since</div>
-                        <div class="info-value"><?php echo date('M Y', strtotime($user['createdAt'])); ?></div>
+
+                    <div class="profile-content">
+                        <!-- Current Information Display -->
+                        <div class="info-section">
+                            <h3>Current Information</h3>
+                            <div class="info-row">
+                                <span class="info-label">Full Name</span>
+                                <span class="info-value"><?php echo htmlspecialchars($user['fullName']); ?></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Email Address</span>
+                                <span class="info-value"><?php echo htmlspecialchars($user['email']); ?></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Phone Number</span>
+                                <span class="info-value"><?php echo formatPhoneNumber($user['phone']); ?></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Total Bookings</span>
+                                <span class="info-value"><?php echo $totalBookings; ?></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Member Since</span>
+                                <span class="info-value"><?php echo date('M Y', strtotime($user['createdAt'])); ?></span>
+                            </div>
+                        </div>
+
+                        <!-- Update Form -->
+                        <form method="POST" class="needs-validation" novalidate>
+                            <!-- Personal Information Section -->
+                            <div class="form-section">
+                                <h3>Personal Information</h3>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="fullName" class="form-label">Full Name</label>
+                                        <input type="text" class="form-control" id="fullName" name="fullName" value="<?php echo htmlspecialchars($user['fullName']); ?>" required>
+                                        <div class="invalid-feedback">Please provide a valid full name.</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="email" class="form-label">Email Address</label>
+                                        <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required>
+                                        <div class="invalid-feedback">Please provide a valid email address.</div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="phone" class="form-label">Phone Number</label>
+                                        <input type="tel" class="form-control" id="phone" name="phone" value="<?php echo $user['phone']; ?>" required>
+                                        <div class="invalid-feedback">Please provide a valid Malaysian phone number.</div>
+                                        <div class="form-text">Format: +60123456789 or 0123456789</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Security Section -->
+                            <div class="form-section">
+                                <h3>Security Settings</h3>
+                                <div class="password-note">
+                                    <small><strong>Note:</strong> Leave password fields blank if you don't want to change your password.</small>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="currentPassword" class="form-label">Current Password</label>
+                                        <input type="password" class="form-control" id="currentPassword" name="currentPassword" placeholder="Enter current password">
+                                        <div class="form-text">Required only if changing password</div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="newPassword" class="form-label">New Password</label>
+                                        <input type="password" class="form-control" id="newPassword" name="newPassword" placeholder="Enter new password" minlength="8">
+                                        <div class="invalid-feedback">Password must be at least 8 characters long.</div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                                        <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm new password">
+                                        <div class="invalid-feedback">Passwords do not match.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Form Actions -->
+                            <div class="form-buttons">
+                                <a href="user_home.php" class="btn btn-secondary">
+                                    <span class="mbr-iconfont mobi-mbri-arrow-prev mobi-mbri me-2"></span>
+                                    Back to Home
+                                </a>
+                                <div>
+                                    <button type="reset" class="btn btn-outline-secondary me-2">
+                                        <span class="mbr-iconfont mobi-mbri-refresh mobi-mbri me-2"></span>
+                                        Reset
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <span class="mbr-iconfont mobi-mbri-save mobi-mbri me-2"></span>
+                                        Update Profile
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
-            </div>
-
-            <!-- Update Form -->
-            <div class="col-md-8">
-                <form method="POST" class="profile-form needs-validation" novalidate>
-                    <!-- Personal Information Section -->
-                    <div class="form-section profile-section">
-                        <h2 class="mb-4"><strong>Personal Information</strong></h2>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="fullName" class="form-label">Full Name</label>
-                                    <input type="text" class="form-control" id="fullName" name="fullName" value="<?php echo htmlspecialchars($user['fullName']); ?>" required>
-                                    <div class="invalid-feedback">
-                                        Please provide a valid full name.
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="email" class="form-label">Email Address</label>
-                                    <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required>
-                                    <div class="invalid-feedback">
-                                        Please provide a valid email address.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="phone" class="form-label">Phone Number</label>
-                                    <input type="tel" class="form-control" id="phone" name="phone" value="<?php echo $user['phone']; ?>" required>
-                                    <div class="invalid-feedback">
-                                        Please provide a valid Malaysian phone number.
-                                    </div>
-                                    <div class="form-text">Format: +60123456789 or 0123456789</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Security Section -->
-                    <div class="form-section profile-section">
-                        <h2 class="mb-4"><strong>Security Settings</strong></h2>
-                        <div class="alert alert-info">
-                            <small><strong>Note:</strong> Leave password fields blank if you don't want to change your password.</small>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="currentPassword" class="form-label">Current Password</label>
-                                    <input type="password" class="form-control" id="currentPassword" name="currentPassword" placeholder="Enter current password">
-                                    <div class="form-text">Required only if changing password</div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="newPassword" class="form-label">New Password</label>
-                                    <input type="password" class="form-control" id="newPassword" name="newPassword" placeholder="Enter new password" minlength="8">
-                                    <div class="invalid-feedback">
-                                        Password must be at least 8 characters long.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm new password">
-                                    <div class="invalid-feedback">
-                                        Passwords do not match.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Form Actions -->
-                    <div class="row mt-4">
-                        <div class="col-12 d-flex justify-content-between">
-                            <a href="user_home.php" class="btn btn-secondary btn-lg">
-                                <span class="mbr-iconfont mobi-mbri-arrow-prev mobi-mbri me-2"></span>
-                                Back to Home
-                            </a>
-                            <div>
-                                <button type="reset" class="btn btn-outline-secondary btn-lg me-2">
-                                    <span class="mbr-iconfont mobi-mbri-refresh mobi-mbri me-2"></span>
-                                    Reset
-                                </button>
-                                <button type="submit" class="btn btn-primary btn-lg">
-                                    <span class="mbr-iconfont mobi-mbri-save mobi-mbri me-2"></span>
-                                    Update Profile
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
             </div>
         </div>
     </div>

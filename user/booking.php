@@ -1,3 +1,67 @@
+<?php
+session_start();
+include '../dbconfig.php';
+
+// Check if user is logged in
+if (!isset($_SESSION['userID'])) {
+    header("Location: ../login.php");
+    exit();
+}
+
+$userID = $_SESSION['userID'];
+
+// Get booking statistics
+$statsQuery = "
+    SELECT 
+        COUNT(*) as total_bookings,
+        SUM(CASE WHEN r.status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_bookings,
+        SUM(CASE WHEN r.status = 'pending' THEN 1 ELSE 0 END) as pending_bookings,
+        SUM(CASE WHEN r.status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_bookings,
+        SUM(CASE WHEN p.paymentStatus = 'refunded' THEN p.amountPaid ELSE 0 END) as total_refunded,
+        SUM(CASE WHEN r.status = 'cancelled' AND p.paymentStatus = 'paid' THEN p.amountPaid ELSE 0 END) as pending_refund
+    FROM reservations r
+    LEFT JOIN payments p ON r.reservationID = p.reservationID
+    WHERE r.userID = ?
+";
+
+$stmt = $conn->prepare($statsQuery);
+$stmt->bind_param("i", $userID);
+$stmt->execute();
+$stats = $stmt->get_result()->fetch_assoc();
+
+// Get all bookings with related information
+$bookingsQuery = "
+    SELECT 
+        r.reservationID,
+        r.reservationDate,
+        r.startTime,
+        r.endTime,
+        r.totalPrice,
+        r.status as reservationStatus,
+        r.addInfo,
+        r.createdAt,
+        ro.roomName,
+        pk.packageName,
+        pk.pricePerHour,
+        p.paymentStatus,
+        p.paymentMethod,
+        p.amountPaid,
+        p.paymentDate,
+        TIMESTAMPDIFF(HOUR, r.startTime, r.endTime) as duration
+    FROM reservations r
+    JOIN rooms ro ON r.roomID = ro.roomID
+    JOIN packages pk ON ro.packageID = pk.packageID
+    LEFT JOIN payments p ON r.reservationID = p.reservationID
+    WHERE r.userID = ?
+    ORDER BY r.reservationDate DESC, r.startTime DESC
+";
+
+$stmt = $conn->prepare($bookingsQuery);
+$stmt->bind_param("i", $userID);
+$stmt->execute();
+$bookings = $stmt->get_result();
+?>
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -40,6 +104,12 @@
       border-radius: 10px;
       margin-bottom: 20px;
     }
+    .booking-reference {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color:rgb(255, 255, 255);
+      margin-bottom: 5px;
+    }
     .booking-status {
       display: inline-block;
       padding: 5px 15px;
@@ -58,6 +128,10 @@
     }
     .status-cancelled {
       background-color: #dc3545;
+      color: white;
+    }
+    .status-completed {
+      background-color: #17a2b8;
       color: white;
     }
     .booking-details {
@@ -83,36 +157,57 @@
       font-weight: 600;
       color: #333;
     }
-    .btn-cancel {
-      background-color: #dc3545;
-      color: #fff;
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .btn-action {
       padding: 8px 16px;
       border: none;
-      border-radius: 5px;
+      border-radius: 6px;
       text-decoration: none;
-      display: inline-block;
-      transition: background-color 0.3s ease;
       font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      white-space: nowrap;
     }
-    .btn-cancel:hover {
-      background-color: #a71d2a;
-      color: #fff;
-    }
-    .btn-invoice {
+    .btn-primary-action {
       background-color: #493d9e;
       color: #fff;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 5px;
-      text-decoration: none;
-      display: inline-block;
-      transition: background-color 0.3s ease;
-      font-size: 0.9rem;
-      margin-right: 10px;
     }
-    .btn-invoice:hover {
+    .btn-primary-action:hover {
       background-color: #3d3486;
       color: #fff;
+      transform: translateY(-1px);
+    }
+    .btn-secondary-action {
+      background-color: #6c757d;
+      color: #fff;
+    }
+    .btn-secondary-action:hover {
+      background-color: #545b62;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .btn-danger-action {
+      background-color: #dc3545;
+      color: #fff;
+    }
+    .btn-danger-action:hover {
+      background-color: #c82333;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .btn-success-action {
+      background-color: #28a745;
+      color: #fff;
+    }
+    .btn-success-action:hover {
+      background-color: #218838;
+      color: #fff;
+      transform: translateY(-1px);
     }
     .page-header {
       background: linear-gradient(45deg, #493d9e, #8571ff);
@@ -155,6 +250,19 @@
       font-size: 4rem;
       color: #ccc;
       margin-bottom: 20px;
+    }
+    .payment-info {
+      background: #e7f3ff;
+      border: 1px solid #bee5eb;
+      border-radius: 5px;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+    .cannot-cancel-text {
+      font-size: 0.8rem;
+      color: #6c757d;
+      font-style: italic;
     }
   </style>
 </head>
@@ -220,291 +328,194 @@
     <div class="container">
         
         <!-- Stats Cards -->
-        <div class="row mb-4">
+        <div class="row mb-4 justify-content-center">
             <div class="col-md-3">
-                <div class="stats-card">
-                    <div class="stats-number">5</div>
-                    <div class="stats-label">Total Bookings</div>
-                </div>
+            <div class="stats-card h-100 d-flex flex-column justify-content-center align-items-center" style="background: linear-gradient(135deg, #f5f6fa, #e9ecef); color: #222; min-height: 120px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div class="stats-number" style="color: #28a745;">RM <?php echo number_format($stats['total_refunded'], 2); ?></div>
+                <div class="stats-label" style="color: #555;">Total Refunded</div>
+            </div>
             </div>
             <div class="col-md-3">
-                <div class="stats-card" style="background: linear-gradient(45deg, #28a745, #34ce57);">
-                    <div class="stats-number">3</div>
-                    <div class="stats-label">Confirmed</div>
-                </div>
+            <div class="stats-card h-100 d-flex flex-column justify-content-center align-items-center" style="background: linear-gradient(135deg, #f5f6fa, #e9ecef); color: #222; min-height: 120px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div class="stats-number" style="color: #fd7e14;">RM <?php echo number_format($stats['pending_refund'], 2); ?></div>
+                <div class="stats-label" style="color: #555;">Pending Refund</div>
             </div>
-            <div class="col-md-3">
-                <div class="stats-card" style="background: linear-gradient(45deg, #ffc107, #ffda49);">
-                    <div class="stats-number">1</div>
-                    <div class="stats-label">Pending</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card" style="background: linear-gradient(45deg, #dc3545, #ff6b7d);">
-                    <div class="stats-number">1</div>
-                    <div class="stats-label">Cancelled</div>
-                </div>
             </div>
         </div>
 
         <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="row align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label">Status Filter</label>
-                    <select class="form-select" id="statusFilter">
-                        <option value="">All Status</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="pending">Pending</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Date From</label>
-                    <input type="date" class="form-control" id="dateFrom">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Date To</label>
-                    <input type="date" class="form-control" id="dateTo">
-                </div>
-                <div class="col-md-3">
-                    <button class="btn btn-primary w-100" onclick="applyFilters()">
-                        <span class="mbr-iconfont mobi-mbri-search mobi-mbri me-2"></span>Filter
-                    </button>
-                </div>
+        <div class="d-flex justify-content-center">
+            <div class="filter-section" style="display: inline-block; padding: 12px 18px; border-radius: 8px; margin-bottom: 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); background: #f8f9fa; width: auto; min-width: 0; max-width: 100%;">
+                <form class="row g-2 align-items-center flex-nowrap justify-content-center" style="flex-wrap: nowrap !important;" onsubmit="applyFilters(); return false;">
+                    <div class="col-auto d-flex align-items-center" style="gap: 8px;">
+                        <label for="statusFilter" class="form-label mb-0" style="font-size: 0.95rem; min-width: 55px;">Status</label>
+                        <select class="form-select form-select-sm" id="statusFilter" style="font-size: 0.95rem; min-width: 120px;">
+                            <option value="">All</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="pending">Pending</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="col-auto d-flex align-items-center" style="gap: 8px;">
+                        <label for="dateFrom" class="form-label mb-0" style="font-size: 0.95rem; min-width: 38px;">From</label>
+                        <input type="date" class="form-control form-control-sm" id="dateFrom" style="font-size: 0.95rem; min-width: 120px;">
+                    </div>
+                    <div class="col-auto d-flex align-items-center" style="gap: 8px;">
+                        <label for="dateTo" class="form-label mb-0" style="font-size: 0.95rem; min-width: 22px;">To</label>
+                        <input type="date" class="form-control form-control-sm" id="dateTo" style="font-size: 0.95rem; min-width: 120px;">
+                    </div>
+                    <div class="col-auto d-flex align-items-center" style="gap: 8px;">
+                        <div class="btn-group-vertical d-block d-md-none w-100" role="group" aria-label="Filter and Clear">
+                            <button type="submit" class="btn btn-primary btn-sm mb-1">
+                                <span class="mbr-iconfont mobi-mbri-search mobi-mbri me-1"></span>Filter
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
+                                Clear
+                            </button>
+                        </div>
+                        <div class="btn-group d-none d-md-flex" role="group" aria-label="Filter and Clear">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <span class="mbr-iconfont mobi-mbri-search mobi-mbri me-1"></span>Filter
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
 
         <!-- Bookings List -->
         <div id="bookings-container">
-            
-            <!-- Booking Card 1 - Confirmed -->
-            <div class="booking-card" data-status="confirmed" data-date="2025-06-15">
-                <div class="booking-header">
+            <?php if ($bookings->num_rows > 0): ?>
+            <div class="row">
+            <?php 
+                while ($booking = $bookings->fetch_assoc()): 
+                $currentDate = new DateTime();
+                $bookingDate = new DateTime($booking['reservationDate']);
+                $isPastBooking = $bookingDate < $currentDate;
+
+                // Determine display status
+                $displayStatus = $booking['reservationStatus'];
+                if ($displayStatus == 'confirmed' && $isPastBooking) {
+                    $displayStatus = 'completed';
+                }
+
+                // Format dates and times
+                $formattedDate = date('F j, Y', strtotime($booking['reservationDate']));
+                $formattedStartTime = date('g:i A', strtotime($booking['startTime']));
+                $formattedEndTime = date('g:i A', strtotime($booking['endTime']));
+                $createdDate = date('F j, Y', strtotime($booking['createdAt']));
+                
+                // Generate booking reference like payment_done.php
+                $bookingReference = '#CK' . str_pad($booking['reservationID'], 5, '0', STR_PAD_LEFT);
+            ?>
+                <div class="col-md-6 mb-4 d-flex">
+                <div class="booking-card flex-fill" data-status="<?php echo $booking['reservationStatus']; ?>" data-date="<?php echo $booking['reservationDate']; ?>">
+                    <div class="booking-header">
                     <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h4 class="mb-1"><strong>VIP Room - Reservation #12345</strong></h4>
-                            <p class="mb-0">Booked on May 20, 2025</p>
+                        <div class="col-8">
+                        <div class="booking-reference"><?php echo $bookingReference; ?></div>
+                        <h5 class="mb-1"><?php echo $booking['packageName']; ?> Room (<?php echo $booking['roomName']; ?>)</h5>
+                        <p class="mb-0" style="opacity: 0.9;">Booked on <?php echo $createdDate; ?></p>
                         </div>
-                        <div class="col-md-4 text-md-end">
-                            <span class="booking-status status-confirmed">Confirmed</span>
+                        <div class="col-4 text-end">
+                        <span class="booking-status status-<?php echo $displayStatus; ?>">
+                            <?php 
+                            echo ucfirst($displayStatus);
+                            if ($booking['reservationStatus'] == 'pending' && !$booking['paymentStatus']) {
+                            echo ' Payment';
+                            }
+                            ?>
+                        </span>
                         </div>
                     </div>
-                </div>
-                
-                <div class="booking-details">
+                    </div>
+                    
+                    <div class="booking-details">
                     <div class="detail-item">
                         <div class="detail-label">Date</div>
-                        <div class="detail-value">June 15, 2025</div>
+                        <div class="detail-value"><?php echo $formattedDate; ?></div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Time</div>
-                        <div class="detail-value">7:00 PM - 10:00 PM</div>
+                        <div class="detail-value"><?php echo $formattedStartTime . ' - ' . $formattedEndTime; ?></div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Duration</div>
-                        <div class="detail-value">3 hours</div>
+                        <div class="detail-value"><?php echo $booking['duration']; ?> hour<?php echo $booking['duration'] > 1 ? 's' : ''; ?></div>
                     </div>
                     <div class="detail-item">
-                        <div class="detail-label">Total Amount</div>
-                        <div class="detail-value">RM 297.00</div>
+                        <div class="detail-label"><?php echo $booking['reservationStatus'] == 'cancelled' ? 'Refund Amount' : 'Total Amount'; ?></div>
+                        <div class="detail-value">RM <?php echo number_format($booking['totalPrice'], 2); ?></div>
                     </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-8">
+                    </div>
+                    
+                    <?php if ($booking['paymentStatus'] && $booking['paymentMethod']): ?>
+                    <div class="payment-info">
+                        <strong>Payment Info:</strong> <?php echo ucfirst($booking['paymentMethod']); ?> - 
+                        Status: <?php echo ucfirst($booking['paymentStatus']); ?>
+                        <?php if ($booking['paymentDate']): ?>
+                        (<?php echo date('M j, Y', strtotime($booking['paymentDate'])); ?>)
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <div class="row mt-3 align-items-end">
+                    <div class="col-md-7">
+                        <?php if (!empty($booking['addInfo'])): ?>
+                        <h6><strong>
+                            <?php echo $booking['reservationStatus'] == 'cancelled' ? 'Cancellation Details:' : 'Special Requests:'; ?>
+                        </strong></h6>
+                        <p class="text-muted mb-2" style="font-size: 0.9rem;"><?php echo nl2br(htmlspecialchars($booking['addInfo'])); ?></p>
+                        <?php else: ?>
                         <h6><strong>Special Requests:</strong></h6>
-                        <p class="text-muted mb-0">Please prepare birthday decorations and a cake table.</p>
+                        <p class="text-muted mb-2" style="font-size: 0.9rem;">No special requests.</p>
+                        <?php endif; ?>
                     </div>
-                    <div class="col-md-4 text-md-end">
-                        <a href="view_invoice.php?id=12345" class="btn-invoice">View Invoice</a>
-                        <a href="cancel_reservation.php?id=12345" class="btn-cancel">Cancel</a>
-                    </div>
-                </div>
-            </div>
+                    <div class="col-md-5">
+                        <div class="action-buttons">
+                        <?php if ($booking['paymentStatus']): ?>
+                            <a href="view_invoice.php?id=<?php echo $booking['reservationID']; ?>" class="btn-action btn-secondary-action">
+                            <?php echo $booking['reservationStatus'] == 'cancelled' ? 'Refund Receipt' : 'View Invoice'; ?>
+                            </a>
+                        <?php endif; ?>
 
-            <!-- Booking Card 2 - Pending -->
-            <div class="booking-card" data-status="pending" data-date="2025-06-10">
-                <div class="booking-header">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h4 class="mb-1"><strong>Deluxe Room - Reservation #12344</strong></h4>
-                            <p class="mb-0">Booked on May 18, 2025</p>
+                        <?php if ($booking['reservationStatus'] == 'pending'): ?>
+                            <?php if (!$booking['paymentStatus']): ?>
+                            <a href="complete_payment.php?id=<?php echo $booking['reservationID']; ?>" class="btn-action btn-success-action">Pay Now</a>
+                            <?php endif; ?>
+                            <a href="cancel_reservation.php?id=<?php echo $booking['reservationID']; ?>" class="btn-action btn-danger-action">Cancel</a>
+                        <?php elseif ($booking['reservationStatus'] == 'confirmed' && !$isPastBooking): ?>
+                            <?php 
+                            $bookingDateTime = new DateTime($booking['reservationDate'] . ' ' . $booking['startTime']);
+                            $hoursUntilBooking = ($bookingDateTime->getTimestamp() - $currentDate->getTimestamp()) / 3600;
+                            ?>
+                            <?php if ($hoursUntilBooking > 24): ?>
+                            <a href="cancel_reservation.php?id=<?php echo $booking['reservationID']; ?>" class="btn-action btn-danger-action">Cancel</a>
+                            <?php else: ?>
+                            <span class="cannot-cancel-text">Cannot cancel (< 24hrs)</span>
+                            <?php endif; ?>
+                        <?php endif; ?>
                         </div>
-                        <div class="col-md-4 text-md-end">
-                            <span class="booking-status status-pending">Pending Payment</span>
-                        </div>
+                    </div>
                     </div>
                 </div>
-                
-                <div class="booking-details">
-                    <div class="detail-item">
-                        <div class="detail-label">Date</div>
-                        <div class="detail-value">June 10, 2025</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Time</div>
-                        <div class="detail-value">2:00 PM - 4:00 PM</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Duration</div>
-                        <div class="detail-value">2 hours</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Total Amount</div>
-                        <div class="detail-value">RM 130.00</div>
-                    </div>
                 </div>
-                
-                <div class="row">
-                    <div class="col-md-8">
-                        <h6><strong>Special Requests:</strong></h6>
-                        <p class="text-muted mb-0">No special requests.</p>
-                    </div>
-                    <div class="col-md-4 text-md-end">
-                        <a href="complete_payment.php?id=12344" class="btn-invoice">Complete Payment</a>
-                        <a href="cancel_reservation.php?id=12344" class="btn-cancel">Cancel</a>
-                    </div>
-                </div>
+            <?php endwhile; ?>
             </div>
-
-            <!-- Booking Card 3 - Confirmed -->
-            <div class="booking-card" data-status="confirmed" data-date="2025-06-01">
-                <div class="booking-header">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h4 class="mb-1"><strong>Standard Room - Reservation #12343</strong></h4>
-                            <p class="mb-0">Booked on May 15, 2025</p>
-                        </div>
-                        <div class="col-md-4 text-md-end">
-                            <span class="booking-status status-confirmed">Confirmed</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="booking-details">
-                    <div class="detail-item">
-                        <div class="detail-label">Date</div>
-                        <div class="detail-value">June 01, 2025</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Time</div>
-                        <div class="detail-value">12:00 PM - 2:00 PM</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Duration</div>
-                        <div class="detail-value">2 hours</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Total Amount</div>
-                        <div class="detail-value">RM 80.00</div>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-8">
-                        <h6><strong>Special Requests:</strong></h6>
-                        <p class="text-muted mb-0">Extra microphones for group singing.</p>
-                    </div>
-                    <div class="col-md-4 text-md-end">
-                        <a href="view_invoice.php?id=12343" class="btn-invoice">View Invoice</a>
-                        <span class="text-muted">Cannot Cancel</span>
-                    </div>
-                </div>
+            <?php else: ?>
+            <!-- Empty State -->
+            <div class="empty-state">
+                <span class="mbr-iconfont mobi-mbri-search mobi-mbri"></span>
+                <h4>No bookings found</h4>
+                <p class="text-muted">You haven't made any bookings yet. <a href="make_reservation.php">Make your first booking</a>!</p>
             </div>
-
-            <!-- Booking Card 4 - Cancelled -->
-            <div class="booking-card" data-status="cancelled" data-date="2025-05-28">
-                <div class="booking-header">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h4 class="mb-1"><strong>Deluxe Room - Reservation #12342</strong></h4>
-                            <p class="mb-0">Booked on May 10, 2025 | Cancelled on May 12, 2025</p>
-                        </div>
-                        <div class="col-md-4 text-md-end">
-                            <span class="booking-status status-cancelled">Cancelled</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="booking-details">
-                    <div class="detail-item">
-                        <div class="detail-label">Date</div>
-                        <div class="detail-value">May 28, 2025</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Time</div>
-                        <div class="detail-value">6:00 PM - 8:00 PM</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Duration</div>
-                        <div class="detail-value">2 hours</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Refund Amount</div>
-                        <div class="detail-value">RM 130.00</div>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-8">
-                        <h6><strong>Cancellation Reason:</strong></h6>
-                        <p class="text-muted mb-0">Customer requested cancellation due to schedule conflict.</p>
-                    </div>
-                    <div class="col-md-4 text-md-end">
-                        <a href="view_invoice.php?id=12342" class="btn-invoice">View Refund Receipt</a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Booking Card 5 - Confirmed -->
-            <div class="booking-card" data-status="confirmed" data-date="2025-05-25">
-                <div class="booking-header">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h4 class="mb-1"><strong>VIP Room - Reservation #12341</strong></h4>
-                            <p class="mb-0">Booked on May 05, 2025</p>
-                        </div>
-                        <div class="col-md-4 text-md-end">
-                            <span class="booking-status status-confirmed">Completed</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="booking-details">
-                    <div class="detail-item">
-                        <div class="detail-label">Date</div>
-                        <div class="detail-value">May 25, 2025</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Time</div>
-                        <div class="detail-value">8:00 PM - 11:00 PM</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Duration</div>
-                        <div class="detail-value">3 hours</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Total Paid</div>
-                        <div class="detail-value">RM 297.00</div>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-8">
-                        <h6><strong>Special Requests:</strong></h6>
-                        <p class="text-muted mb-0">Corporate team building event setup.</p>
-                    </div>
-                    <div class="col-md-4 text-md-end">
-                        <a href="view_invoice.php?id=12341" class="btn-invoice">View Invoice</a>
-                        <a href="leave_review.php?id=12341" class="btn" style="background-color: #28a745; color: white; padding: 8px 16px; border-radius: 5px; text-decoration: none;">Leave Review</a>
-                    </div>
-                </div>
-            </div>
-
+            <?php endif; ?>
         </div>
 
-        <!-- Empty State (hidden by default) -->
+        <!-- Empty State for filtered results (hidden by default) -->
         <div id="empty-state" class="empty-state" style="display: none;">
             <span class="mbr-iconfont mobi-mbri-search mobi-mbri"></span>
             <h4>No bookings found</h4>
@@ -603,10 +614,16 @@
         document.getElementById('empty-state').style.display = 'none';
     }
 
-    // Set minimum date for date inputs
+    // Set date input constraints
     document.addEventListener('DOMContentLoaded', function() {
         const today = new Date().toISOString().split('T')[0];
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const minDate = oneYearAgo.toISOString().split('T')[0];
+        
+        document.getElementById('dateFrom').setAttribute('min', minDate);
         document.getElementById('dateFrom').setAttribute('max', today);
+        document.getElementById('dateTo').setAttribute('min', minDate);
         document.getElementById('dateTo').setAttribute('max', today);
     });
   </script>
