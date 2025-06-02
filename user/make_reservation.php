@@ -263,7 +263,7 @@ if(isset($_POST['submit'])) {
                                     <li>2 microphones</li>
                                     <li>40" TV screen</li>
                                 </ul>
-                                <h5 class="text-primary">RM 40/hour</h5>
+                                <h5 class="text-primary">RM 49/hour</h5>
                                 <div class="form-check mt-3">
                                     <input class="form-check-input room-select" type="radio" name="room" id="standard-room" value="Standard" required>
                                     <label class="form-check-label" for="standard-room">
@@ -286,7 +286,7 @@ if(isset($_POST['submit'])) {
                                     <li>4 microphones</li>
                                     <li>50" TV screen</li>
                                 </ul>
-                                <h5 class="text-primary">RM 65/hour</h5>
+                                <h5 class="text-primary">RM 99/hour</h5>
                                 <div class="form-check mt-3">
                                     <input class="form-check-input room-select" type="radio" name="room" id="deluxe-room" value="Deluxe" required>
                                     <label class="form-check-label" for="deluxe-room">
@@ -309,7 +309,7 @@ if(isset($_POST['submit'])) {
                                     <li>6 microphones</li>
                                     <li>65" TV screen</li>
                                 </ul>
-                                <h5 class="text-primary">RM 99/hour</h5>
+                                <h5 class="text-primary">RM 119/hour</h5>
                                 <div class="form-check mt-3">
                                     <input class="form-check-input room-select" type="radio" name="room" id="vip-room" value="VIP" required>
                                     <label class="form-check-label" for="vip-room">
@@ -516,15 +516,15 @@ if(isset($_POST['submit'])) {
             switch(roomElement.value) {
                 case 'Standard':
                     roomName = "Standard Room";
-                    roomPrice = 40;
+                    roomPrice = 49;
                     break;
                 case 'Deluxe':
                     roomName = "Deluxe Room";
-                    roomPrice = 65;
+                    roomPrice = 99;
                     break;
                 case 'VIP':
                     roomName = "VIP Room";
-                    roomPrice = 99;
+                    roomPrice = 119;
                     break;
             }
         }
