@@ -194,7 +194,8 @@ if ($conn) {
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6"> <div class="p-6 rounded-lg shadow-md dashboard-card text-center">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+            <div class="p-6 rounded-lg shadow-md dashboard-card text-center">
                 <div class="dashboard-icon">
                     <i class="fas fa-door-open"></i> </div>
                 <h2 class="card-title">Manage Karaoke Rooms</h2>
@@ -231,6 +232,15 @@ if ($conn) {
                 <p class="card-text">View, confirm, or cancel customer bookings.</p>
                 <a href="manage_reservations.php" class="btn-card">
                     Go to Management
+                </a>
+            </div>
+
+            <div class="p-6 rounded-lg shadow-md dashboard-card text-center lg:col-span-2"> <div class="dashboard-icon">
+                    <i class="fas fa-chart-bar"></i> </div>
+                <h2 class="card-title">View Reports</h2>
+                <p class="card-text">Generate and view business performance reports.</p>
+                <a href="report.php" class="btn-card">
+                    Go to Reports
                 </a>
             </div>
 
