@@ -31,12 +31,16 @@ if ($conn) {
         $stmt->close();
     }
 
-    // Total Customers
-    $result = $conn->query("SELECT COUNT(userID) AS totalCustomers FROM users");
-    if ($result) {
+    // Total Customers (only count users with role 'user')
+    $stmt = $conn->prepare("SELECT COUNT(userID) AS totalCustomers FROM users WHERE role = 'user'");
+    if ($stmt) {
+        $stmt->execute();
+        $result = $stmt->get_result();
         $row = $result->fetch_assoc();
         $totalCustomers = $row['totalCustomers'] ?? 0;
+        $stmt->close();
     }
+
 
     // Total Rooms
     $result = $conn->query("SELECT COUNT(roomID) AS totalRooms FROM rooms");
@@ -74,6 +78,10 @@ if ($conn) {
             color: #374151; /* Darker text for cards */
             border-radius: 0.75rem; /* Slightly less rounded corners */
             border: 1px solid #000; /* Added black border */
+            display: flex; /* Added flexbox */
+            flex-direction: column; /* Stack children vertically */
+            justify-content: space-between; /* Push button to bottom */
+            padding: 1.5rem; /* Adjusted padding for consistency */
         }
         .dashboard-card:hover {
             transform: translateY(-5px);
@@ -91,8 +99,8 @@ if ($conn) {
         }
         .card-text {
             font-size: 0.875rem; /* Standard text size */
-            margin-bottom: 1rem; /* Reduced margin to prevent overlap */
-            min-height: 2.5rem; /* Ensure consistent height for text area */
+            margin-bottom: 1rem; /* Keep some margin */
+            flex-grow: 1; /* Allow text to grow and push button down */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -106,7 +114,7 @@ if ($conn) {
             font-weight: 500; /* Medium font weight */
             transition: background-color 0.3s ease;
             display: inline-block; /* Ensure it's an inline-block for proper spacing */
-            margin-top: 0.5rem; /* Add some top margin to separate from text */
+            margin-top: auto; /* Push button to the bottom of the flex container */
         }
         .btn-card:hover {
             background-color: #4338ca; /* Darker blue on hover */
@@ -186,8 +194,7 @@ if ($conn) {
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="p-6 rounded-lg shadow-md dashboard-card text-center">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6"> <div class="p-6 rounded-lg shadow-md dashboard-card text-center">
                 <div class="dashboard-icon">
                     <i class="fas fa-door-open"></i> </div>
                 <h2 class="card-title">Manage Karaoke Rooms</h2>
