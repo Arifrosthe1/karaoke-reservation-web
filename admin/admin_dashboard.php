@@ -169,7 +169,7 @@ if ($conn) {
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div class="metric-card">
                     <div class="metric-value">RM <?php echo htmlspecialchars(number_format($allTimeSales, 2)); ?></div>
-                    <div class="metric-label">All Time Sales</div>
+                    <div class="metric-label">Sales</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-value"><?php echo htmlspecialchars($totalCustomers); ?></div>
