@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 03, 2025 at 09:54 AM
+-- Generation Time: Jun 06, 2025 at 04:27 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -70,7 +70,7 @@ INSERT INTO `payments` (`paymentID`, `reservationID`, `paymentMethod`, `amountPa
 (5, 7, 'Debit Card', 40.00, '2025-05-25 11:41:18', 'paid'),
 (6, 8, 'Online Banking', 297.00, '2025-05-27 00:28:26', 'paid'),
 (7, 9, 'Credit Card', 65.00, '2025-05-27 01:00:21', 'paid'),
-(8, 10, 'Online Banking', 65.00, '2025-05-27 01:09:27', 'pending'),
+(8, 10, 'Online Banking', 65.00, '2025-05-27 01:09:27', 'refunded'),
 (9, 11, 'Credit Card', 65.00, '2025-05-27 07:48:37', 'refunded'),
 (10, 12, 'Debit Card', 40.00, '2025-06-02 01:27:26', 'refunded'),
 (11, 13, 'Online Banking', 49.00, '2025-06-02 11:35:51', 'paid'),
@@ -80,6 +80,22 @@ INSERT INTO `payments` (`paymentID`, `reservationID`, `paymentMethod`, `amountPa
 (15, 17, 'Online Banking', 321.30, '2025-06-03 04:26:31', 'paid'),
 (16, 18, 'Online Banking', 88.20, '2025-06-03 04:28:23', 'paid'),
 (17, 19, 'Debit Card', 198.00, '2025-06-03 04:31:18', 'paid');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `requestchanges`
+--
+
+CREATE TABLE `requestchanges` (
+  `reqID` int(11) NOT NULL,
+  `userID` int(11) NOT NULL,
+  `emailChange` enum('yes','no') NOT NULL,
+  `phnoChange` enum('yes','no') NOT NULL,
+  `newEmail` varchar(255) DEFAULT NULL,
+  `newPNo` varchar(20) DEFAULT NULL,
+  `createdAt` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -208,6 +224,13 @@ ALTER TABLE `payments`
   ADD KEY `reservationID` (`reservationID`);
 
 --
+-- Indexes for table `requestchanges`
+--
+ALTER TABLE `requestchanges`
+  ADD PRIMARY KEY (`reqID`),
+  ADD KEY `userID` (`userID`);
+
+--
 -- Indexes for table `reservations`
 --
 ALTER TABLE `reservations`
@@ -246,6 +269,12 @@ ALTER TABLE `payments`
   MODIFY `paymentID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
+-- AUTO_INCREMENT for table `requestchanges`
+--
+ALTER TABLE `requestchanges`
+  MODIFY `reqID` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `reservations`
 --
 ALTER TABLE `reservations`
@@ -272,6 +301,12 @@ ALTER TABLE `users`
 --
 ALTER TABLE `payments`
   ADD CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`reservationID`) REFERENCES `reservations` (`reservationID`);
+
+--
+-- Constraints for table `requestchanges`
+--
+ALTER TABLE `requestchanges`
+  ADD CONSTRAINT `requestchanges_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`);
 
 --
 -- Constraints for table `reservations`
