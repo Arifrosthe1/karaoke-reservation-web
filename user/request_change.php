@@ -25,76 +25,73 @@ if (!$user) {
     exit();
 }
 
-// Get user's total bookings count
-$bookingQuery = "SELECT COUNT(*) as total_bookings FROM reservations WHERE userID = ?";
-$bookingStmt = $conn->prepare($bookingQuery);
-$bookingStmt->bind_param("i", $userID);
-$bookingStmt->execute();
-$bookingResult = $bookingStmt->get_result();
-$bookingData = $bookingResult->fetch_assoc();
-$totalBookings = $bookingData['total_bookings'];
+// Check for existing pending requests
+$checkQuery = "SELECT * FROM requestChanges WHERE userID = ? ORDER BY createdAt DESC LIMIT 1";
+$checkStmt = $conn->prepare($checkQuery);
+$checkStmt->bind_param("i", $userID);
+$checkStmt->execute();
+$checkResult = $checkStmt->get_result();
+$existingRequest = $checkResult->fetch_assoc();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $fullName = trim($_POST['fullName']);
-    $currentPassword = $_POST['currentPassword'];
-    $newPassword = $_POST['newPassword'];
-    $confirmPassword = $_POST['confirmPassword'];
+    $emailChange = isset($_POST['emailChange']) ? 'yes' : 'no';
+    $phnoChange = isset($_POST['phnoChange']) ? 'yes' : 'no';
+    $newEmail = trim($_POST['newEmail']);
+    $newPNo = trim($_POST['newPNo']);
     
     // Validation
     $errors = array();
     
-    if (empty($fullName)) {
-        $errors[] = "Full name is required";
+    if ($emailChange == 'no' && $phnoChange == 'no') {
+        $errors[] = "Please select at least one field to change";
     }
     
-    // Password validation if provided
-    if (!empty($currentPassword) || !empty($newPassword) || !empty($confirmPassword)) {
-        if (empty($currentPassword)) {
-            $errors[] = "Current password is required to change password";
-        } else {
-            if (!password_verify($currentPassword, $user['password'])) {
-                $errors[] = "Current password is incorrect";
-            }
+    if ($emailChange == 'yes') {
+        if (empty($newEmail)) {
+            $errors[] = "New email is required";
+        } elseif (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = "Invalid email format";
+        } elseif ($newEmail == $user['email']) {
+            $errors[] = "New email must be different from current email";
         }
-        
-        if (empty($newPassword)) {
-            $errors[] = "New password is required";
-        } elseif (strlen($newPassword) < 8) {
-            $errors[] = "New password must be at least 8 characters long";
+    }
+    
+    if ($phnoChange == 'yes') {
+        if (empty($newPNo)) {
+            $errors[] = "New phone number is required";
+        } elseif (!preg_match('/^[0-9]{10,12}$/', $newPNo)) {
+            $errors[] = "Phone number must be 10-12 digits";
+        } elseif ($newPNo == $user['phone']) {
+            $errors[] = "New phone number must be different from current number";
         }
-        
-        if ($newPassword !== $confirmPassword) {
-            $errors[] = "New passwords do not match";
-        }
+    }
+    
+    // Check for existing pending request
+    if ($existingRequest) {
+        $errors[] = "You already have a pending change request. Please wait for it to be processed.";
     }
     
     if (empty($errors)) {
-        // Update user information
-        if (!empty($newPassword)) {
-            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-            $updateQuery = "UPDATE users SET fullName = ?, password = ? WHERE userID = ?";
-            $updateStmt = $conn->prepare($updateQuery);
-            $updateStmt->bind_param("ssi", $fullName, $hashedPassword, $userID);
-        } else {
-            $updateQuery = "UPDATE users SET fullName = ? WHERE userID = ?";
-            $updateStmt = $conn->prepare($updateQuery);
-            $updateStmt->bind_param("si", $fullName, $userID);
-        }
+        // Set empty values for unchanged fields
+        if ($emailChange == 'no') $newEmail = '';
+        if ($phnoChange == 'no') $newPNo = '';
         
-        if ($updateStmt->execute()) {
-            // Update session data
-            $_SESSION['fullName'] = $fullName;
-            
-            // Refresh user data
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $user = $result->fetch_assoc();
-            
-            $message = "Profile updated successfully!";
+        // Insert request into database
+        $insertQuery = "INSERT INTO requestChanges (userID, emailChange, phnoChange, newEmail, newPNo, createdAt) VALUES (?, ?, ?, ?, ?, NOW())";
+        $insertStmt = $conn->prepare($insertQuery);
+        $insertStmt->bind_param("issss", $userID, $emailChange, $phnoChange, $newEmail, $newPNo);
+        
+        if ($insertStmt->execute()) {
+            $message = "Change request submitted successfully! We will review your request and contact you within 2-3 business days.";
             $messageType = "success";
+            
+            // Refresh to show the new request
+            $checkStmt->execute();
+            $checkResult = $checkStmt->get_result();
+            $existingRequest = $checkResult->fetch_assoc();
         } else {
-            $message = "Error updating profile";
+            $message = "Error submitting request. Please try again.";
             $messageType = "error";
         }
     } else {
@@ -121,8 +118,8 @@ function formatPhoneNumber($phone) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-  <meta name="description" content="Crony Karaoke - Profile Update">
-  <title>Profile Update - Crony Karaoke</title>
+  <meta name="description" content="Crony Karaoke - Request Change">
+  <title>Request Change - Crony Karaoke</title>
   
   <!-- Favicon -->
   <link rel="shortcut icon" href="../assets/images/cronykaraoke.webp" type="image/x-icon">
@@ -328,22 +325,29 @@ function formatPhoneNumber($phone) {
       margin-top: 0.25rem;
     }
 
-    /* Locked Field */
-    .locked-field {
-      position: relative;
+    /* Checkbox Styles */
+    .form-check {
+      margin-bottom: 1rem;
     }
 
-    .lock-icon {
-      position: absolute;
-      right: 15px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-gray);
-      font-size: 0.9rem;
+    .form-check-input {
+      background-color: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
     }
 
-    .locked-field .form-control {
-      padding-right: 40px;
+    .form-check-input:checked {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .form-check-input:focus {
+      box-shadow: 0 0 0 0.2rem rgba(124, 108, 255, 0.25);
+    }
+
+    .form-check-label {
+      color: var(--text-white);
+      font-weight: 500;
     }
 
     /* Buttons */
@@ -402,25 +406,6 @@ function formatPhoneNumber($phone) {
       text-decoration: none;
     }
 
-    .btn-warning {
-      background: linear-gradient(135deg, var(--warning-color), #ffeb3b);
-      color: #333;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-weight: 600;
-      text-decoration: none;
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-    }
-
-    .btn-warning:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(255, 221, 87, 0.3);
-      color: #333;
-      text-decoration: none;
-    }
-
     /* Alerts */
     .alert {
       border-radius: 8px;
@@ -441,8 +426,14 @@ function formatPhoneNumber($phone) {
       border: 1px solid rgba(255, 56, 96, 0.2);
     }
 
-    /* Password Note */
-    .password-note {
+    .alert-warning {
+      background: rgba(255, 221, 87, 0.1);
+      color: var(--warning-color);
+      border: 1px solid rgba(255, 221, 87, 0.2);
+    }
+
+    /* Info Note */
+    .info-note {
       background: rgba(124, 108, 255, 0.1);
       border: 1px solid rgba(124, 108, 255, 0.2);
       border-radius: 8px;
@@ -450,8 +441,23 @@ function formatPhoneNumber($phone) {
       margin-bottom: 1.5rem;
     }
 
-    .password-note small {
+    .info-note small {
       color: var(--primary-light);
+    }
+
+    /* Pending Request */
+    .pending-request {
+      background: rgba(255, 221, 87, 0.1);
+      border: 1px solid rgba(255, 221, 87, 0.2);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .pending-title {
+      color: var(--warning-color);
+      font-weight: 700;
+      margin-bottom: 1rem;
     }
 
     /* Form Actions */
@@ -562,8 +568,8 @@ function formatPhoneNumber($phone) {
     <div class="container">
       <!-- Welcome Header -->
       <div class="welcome-header">
-        <h1 class="welcome-title">Update Profile</h1>
-        <p class="welcome-subtitle">Keep your information up to date</p>
+        <h1 class="welcome-title">Request Information Change</h1>
+        <p class="welcome-subtitle">Request changes to your email address or phone number</p>
       </div>
 
       <!-- Success/Error Messages -->
@@ -581,10 +587,6 @@ function formatPhoneNumber($phone) {
               <h3 class="section-title">Current Information</h3>
               <div class="info-grid">
                 <div class="info-item">
-                  <div class="info-label">Full Name</div>
-                  <div class="info-value"><?php echo htmlspecialchars($user['fullName']); ?></div>
-                </div>
-                <div class="info-item">
                   <div class="info-label">Email Address</div>
                   <div class="info-value"><?php echo htmlspecialchars($user['email']); ?></div>
                 </div>
@@ -592,116 +594,111 @@ function formatPhoneNumber($phone) {
                   <div class="info-label">Phone Number</div>
                   <div class="info-value"><?php echo formatPhoneNumber($user['phone']); ?></div>
                 </div>
-                <div class="info-item">
-                  <div class="info-label">Total Bookings</div>
-                  <div class="info-value"><?php echo $totalBookings; ?></div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">Member Since</div>
-                  <div class="info-value"><?php echo date('M Y', strtotime($user['createdAt'])); ?></div>
-                </div>
               </div>
             </div>
 
-            <!-- Update Form -->
+            <!-- Existing Request Check -->
+            <?php if ($existingRequest): ?>
             <div class="profile-section">
-              <h3 class="section-title">Update Information</h3>
+              <div class="pending-request">
+                <h4 class="pending-title">
+                  <i class="fas fa-clock me-2"></i>
+                  Pending Change Request
+                </h4>
+                <p class="mb-2">You have a pending change request submitted on <?php echo date('M d, Y', strtotime($existingRequest['createdAt'])); ?>.</p>
+                <div class="row">
+                  <?php if ($existingRequest['emailChange'] == 'yes'): ?>
+                  <div class="col-md-6">
+                    <strong>Email Change:</strong> <?php echo htmlspecialchars($existingRequest['newEmail']); ?>
+                  </div>
+                  <?php endif; ?>
+                  <?php if ($existingRequest['phnoChange'] == 'yes'): ?>
+                  <div class="col-md-6">
+                    <strong>Phone Change:</strong> <?php echo formatPhoneNumber($existingRequest['newPNo']); ?>
+                  </div>
+                  <?php endif; ?>
+                </div>
+                <p class="mt-2 mb-0"><small>Please wait for the current request to be processed before submitting a new one.</small></p>
+              </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Request Form -->
+            <?php if (!$existingRequest): ?>
+            <div class="profile-section">
+              <h3 class="section-title">Submit Change Request</h3>
+              
+              <div class="info-note">
+                <small><strong>Important:</strong> Changes to email and phone number require verification. You will be contacted within 2-3 business days to complete the verification process.</small>
+              </div>
               
               <form method="POST">
-                <!-- Personal Information -->
+                <!-- Change Options -->
                 <div class="row">
                   <div class="col-md-6">
                     <div class="form-group">
-                      <label for="fullName" class="form-label">Full Name</label>
-                      <input type="text" class="form-control" id="fullName" name="fullName" value="<?php echo htmlspecialchars($user['fullName']); ?>" required>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Locked Fields -->
-                <div class="row">
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label for="email" class="form-label">Email Address</label>
-                      <div class="locked-field">
-                        <input type="email" class="form-control" id="email" value="<?php echo htmlspecialchars($user['email']); ?>" disabled>
-                        <i class="fas fa-lock lock-icon"></i>
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="emailChange" name="emailChange" onchange="toggleEmailField()">
+                        <label class="form-check-label" for="emailChange">
+                          Change Email Address
+                        </label>
                       </div>
-                      <div class="form-text">Email changes require verification</div>
+                    </div>
+                    
+                    <div class="form-group" id="emailGroup" style="display: none;">
+                      <label for="newEmail" class="form-label">New Email Address</label>
+                      <input type="email" class="form-control" id="newEmail" name="newEmail" placeholder="Enter new email address">
+                      <div class="form-text">Must be a valid email address</div>
                     </div>
                   </div>
+                  
                   <div class="col-md-6">
                     <div class="form-group">
-                      <label for="phone" class="form-label">Phone Number</label>
-                      <div class="locked-field">
-                        <input type="tel" class="form-control" id="phone" value="<?php echo formatPhoneNumber($user['phone']); ?>" disabled>
-                        <i class="fas fa-lock lock-icon"></i>
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="phnoChange" name="phnoChange" onchange="togglePhoneField()">
+                        <label class="form-check-label" for="phnoChange">
+                          Change Phone Number
+                        </label>
                       </div>
-                      <div class="form-text">Phone changes require verification</div>
                     </div>
-                  </div>
-                </div>
-
-                <!-- Request Change Button -->
-                <div class="row">
-                  <div class="col-12">
-                    <div class="form-group">
-                      <a href="request_change.php" class="btn-warning">
-                        <i class="fas fa-edit me-2"></i>
-                        Request Email/Phone Change
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Security Settings -->
-                <h4 class="section-title">Security Settings</h4>
-                <div class="password-note">
-                  <small><strong>Note:</strong> Leave password fields blank if you don't want to change your password.</small>
-                </div>
-
-                <div class="row">
-                  <div class="col-md-4">
-                    <div class="form-group">
-                      <label for="currentPassword" class="form-label">Current Password</label>
-                      <input type="password" class="form-control" id="currentPassword" name="currentPassword" placeholder="Enter current password">
-                      <div class="form-text">Required only if changing password</div>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="form-group">
-                      <label for="newPassword" class="form-label">New Password</label>
-                      <input type="password" class="form-control" id="newPassword" name="newPassword" placeholder="Enter new password" minlength="8">
-                      <div class="form-text">At least 8 characters</div>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="form-group">
-                      <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                      <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm new password">
+                    
+                    <div class="form-group" id="phoneGroup" style="display: none;">
+                      <label for="newPNo" class="form-label">New Phone Number</label>
+                      <input type="tel" class="form-control" id="newPNo" name="newPNo" placeholder="Enter new phone number (without +60)">
+                      <div class="form-text">Enter 10-12 digits without country code</div>
                     </div>
                   </div>
                 </div>
 
                 <!-- Form Actions -->
                 <div class="form-actions">
-                  <a href="user_home.php" class="btn-secondary">
+                  <a href="profile_update.php" class="btn-secondary">
                     <i class="fas fa-arrow-left me-2"></i>
-                    Back to Home
+                    Back to Profile
                   </a>
                   <div>
-                    <button type="reset" class="btn-outline-secondary me-2">
+                    <button type="reset" class="btn-outline-secondary me-2" onclick="resetForm()">
                       <i class="fas fa-undo me-2"></i>
                       Reset
                     </button>
                     <button type="submit" class="card-button">
-                      <i class="fas fa-save me-2"></i>
-                      Update Profile
+                      <i class="fas fa-paper-plane me-2"></i>
+                      Submit Request
                     </button>
                   </div>
                 </div>
               </form>
             </div>
+            <?php else: ?>
+            <div class="profile-section">
+              <div class="form-actions">
+                <a href="profile_update.php" class="btn-secondary">
+                  <i class="fas fa-arrow-left me-2"></i>
+                  Back to Profile
+                </a>
+              </div>
+            </div>
+            <?php endif; ?>
           </div>
         </div>
       </div>
@@ -728,16 +725,48 @@ function formatPhoneNumber($phone) {
   <script src="../assets/theme/js/script.js"></script>
 
   <script>
-    // Password confirmation validation
-    document.getElementById('confirmPassword').addEventListener('input', function() {
-      var newPassword = document.getElementById('newPassword').value;
-      var confirmPassword = this.value;
+    function toggleEmailField() {
+      var checkbox = document.getElementById('emailChange');
+      var emailGroup = document.getElementById('emailGroup');
+      var emailInput = document.getElementById('newEmail');
       
-      if (newPassword !== confirmPassword) {
-        this.setCustomValidity('Passwords do not match');
+      if (checkbox.checked) {
+        emailGroup.style.display = 'block';
+        emailInput.required = true;
       } else {
-        this.setCustomValidity('');
+        emailGroup.style.display = 'none';
+        emailInput.required = false;
+        emailInput.value = '';
       }
+    }
+
+    function togglePhoneField() {
+      var checkbox = document.getElementById('phnoChange');
+      var phoneGroup = document.getElementById('phoneGroup');
+      var phoneInput = document.getElementById('newPNo');
+      
+      if (checkbox.checked) {
+        phoneGroup.style.display = 'block';
+        phoneInput.required = true;
+      } else {
+        phoneGroup.style.display = 'none';
+        phoneInput.required = false;
+        phoneInput.value = '';
+      }
+    }
+
+    function resetForm() {
+      document.getElementById('emailChange').checked = false;
+      document.getElementById('phnoChange').checked = false;
+      document.getElementById('emailGroup').style.display = 'none';
+      document.getElementById('phoneGroup').style.display = 'none';
+      document.getElementById('newEmail').required = false;
+      document.getElementById('newPNo').required = false;
+    }
+
+    // Phone number formatting
+    document.getElementById('newPNo').addEventListener('input', function() {
+      this.value = this.value.replace(/[^0-9]/g, '');
     });
 
     // Auto-hide alert messages after 5 seconds
