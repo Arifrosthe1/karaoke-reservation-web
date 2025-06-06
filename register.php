@@ -507,6 +507,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <p class="mb-0">
           <a href="mailto:kl_info@cronykaraoke.com">kl_info@cronykaraoke.com</a>
         </p>
+        <p class="mb-0">Powered by CronyTech</p>
       </div>
     </div>
   </footer>

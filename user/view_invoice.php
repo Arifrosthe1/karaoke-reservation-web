@@ -66,241 +66,352 @@ $bookingReference = '#CK' . str_pad($invoice['reservationID'], 5, '0', STR_PAD_L
 
 // Determine if this is a refund receipt
 $isRefund = $invoice['reservationStatus'] == 'cancelled' && $invoice['paymentStatus'] == 'refunded';
-$documentTitle = $isRefund ? 'Refund Receipt' : 'Invoice';
+$documentTitle = $isRefund ? 'REFUND RECEIPT' : 'RECEIPT';
 
 // Format dates
-$formattedDate = date('F j, Y', strtotime($invoice['reservationDate']));
+$formattedDate = date('d/m/Y', strtotime($invoice['reservationDate']));
 $formattedStartTime = date('g:i A', strtotime($invoice['startTime']));
 $formattedEndTime = date('g:i A', strtotime($invoice['endTime']));
-$invoiceDate = date('F j, Y', strtotime($invoice['paymentDate'] ?: $invoice['createdAt']));
+$receiptDate = date('d/m/Y g:i A', strtotime($invoice['paymentDate'] ?: $invoice['createdAt']));
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-    <link rel="shortcut icon" href="../assets/images/cronykaraoke.webp" type="image/x-icon">
-    <meta name="description" content="Crony Karaoke - <?php echo $documentTitle; ?>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $documentTitle; ?> - Crony Karaoke</title>
-    <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="../assets/theme/css/style.css">
-    
     <style>
-        @media print {
-            .no-print { display: none !important; }
-            .invoice-container { box-shadow: none !important; }
-            body { background: white !important; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        .invoice-container {
+
+        body {
+            font-family: 'Courier New', monospace;
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            margin: 2rem auto;
-            max-width: 800px;
-            overflow: hidden;
+            color: #000;
+            padding: 20px;
+            line-height: 1.4;
         }
-        
-        .invoice-header {
-            background: linear-gradient(45deg, #493d9e, #8571ff);
-            color: white;
-            padding: 2rem;
+
+        .receipt {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border: 2px dashed #000;
+            padding: 20px;
+        }
+
+        .header {
             text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 15px;
         }
-        
-        .invoice-body {
-            padding: 2rem;
+
+        .company-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
         }
-        
+
         .company-info {
-            text-align: center;
-            margin-bottom: 2rem;
+            font-size: 12px;
+            margin-bottom: 10px;
         }
-        
-        .invoice-details {
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            overflow: hidden;
-            margin: 1.5rem 0;
+
+        .receipt-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
         }
-        
-        .invoice-details th {
-            background: #f8f9fa;
-            padding: 12px;
-            font-weight: 600;
+
+        .receipt-info {
+            margin-bottom: 20px;
+            font-size: 14px;
         }
-        
-        .invoice-details td {
-            padding: 12px;
-            border-top: 1px solid #dee2e6;
+
+        .receipt-info div {
+            margin-bottom: 5px;
         }
-        
+
+        .customer-info {
+            margin-bottom: 20px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 15px;
+        }
+
+        .customer-info h4 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-decoration: underline;
+        }
+
+        .booking-details {
+            margin-bottom: 20px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 15px;
+        }
+
+        .booking-details h4 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-decoration: underline;
+        }
+
+        .items-table {
+            width: 100%;
+            margin-bottom: 20px;
+            border-collapse: collapse;
+        }
+
+        .items-table th,
+        .items-table td {
+            text-align: left;
+            padding: 5px 0;
+            font-size: 12px;
+        }
+
+        .items-table th {
+            border-bottom: 1px solid #000;
+            font-weight: bold;
+        }
+
+        .items-table .amount {
+            text-align: right;
+        }
+
         .total-section {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
+            border-top: 1px solid #000;
+            padding-top: 10px;
+            margin-bottom: 20px;
         }
-        
+
+        .total-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .total-final {
+            font-weight: bold;
+            font-size: 16px;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            margin-top: 10px;
+        }
+
+        .payment-info {
+            margin-bottom: 20px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 15px;
+        }
+
+        .payment-info h4 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-decoration: underline;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            border-top: 1px dashed #000;
+            padding-top: 15px;
+            font-size: 12px;
+        }
+
+        .print-button {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .print-btn {
+            background: #000;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+
+        .print-btn:hover {
+            background: #333;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .back-link a {
+            color: #000;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+
         .status-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-transform: uppercase;
+            padding: 2px 8px;
+            border: 1px solid #000;
+            font-size: 12px;
+            font-weight: bold;
         }
-        
-        .status-paid {
-            background-color: #28a745;
-            color: white;
-        }
-        
-        .status-refunded {
-            background-color: #17a2b8;
-            color: white;
-        }
-        
-        .btn-print {
-            background-color: #493d9e;
-            border-color: #493d9e;
-        }
-        
-        .btn-print:hover {
-            background-color: #3d3486;
-            border-color: #3d3486;
+
+        /* Print styles */
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .print-button,
+            .back-link {
+                display: none;
+            }
+            
+            .receipt {
+                border: none;
+                max-width: none;
+                margin: 0;
+                padding: 10px;
+            }
         }
     </style>
 </head>
-<body style="background: #edefeb;">
-
-<div class="container">
-    <div class="invoice-container">
-        <!-- Invoice Header -->
-        <div class="invoice-header">
-            <h1 class="mb-3"><?php echo $documentTitle; ?></h1>
-            <h2 class="mb-0"><?php echo $bookingReference; ?></h2>
-        </div>
-        
-        <!-- Invoice Body -->
-        <div class="invoice-body">
-            <!-- Company Info -->
+<body>
+    <div class="receipt">
+        <!-- Header -->
+        <div class="header">
+            <div class="company-name">CRONY KARAOKE</div>
             <div class="company-info">
-                <h3>Crony Karaoke</h3>
-                <p class="mb-1">Premium Karaoke Experience</p>
-                <p class="mb-1">📞 +60 16-501 4332 | 📧 helper@cronykaraoke.com</p>
-                <p class="text-muted">Date: <?php echo $invoiceDate; ?></p>
+                Premium Karaoke Experience<br>
+                Level 2, Lot 18, Plaza Sentral<br>
+                Kuala Lumpur, Malaysia<br>
+                Tel: +60 16-501 4332<br>
+                Email: helper@cronykaraoke.com
             </div>
-            
-            <!-- Customer & Booking Info -->
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <h5>Bill To:</h5>
-                    <p class="mb-1"><strong><?php echo htmlspecialchars($invoice['fullName']); ?></strong></p>
-                    <p class="mb-1"><?php echo htmlspecialchars($invoice['email']); ?></p>
-                    <p class="mb-0"><?php echo htmlspecialchars($invoice['phone']); ?></p>
-                </div>
-                <div class="col-md-6">
-                    <h5>Booking Info:</h5>
-                    <p class="mb-1"><strong>Date:</strong> <?php echo $formattedDate; ?></p>
-                    <p class="mb-1"><strong>Time:</strong> <?php echo $formattedStartTime . ' - ' . $formattedEndTime; ?></p>
-                    <p class="mb-1"><strong>Duration:</strong> <?php echo $invoice['duration']; ?> hour<?php echo $invoice['duration'] > 1 ? 's' : ''; ?></p>
-                    <p class="mb-0">
-                        <strong>Status:</strong> 
-                        <span class="status-badge <?php echo $isRefund ? 'status-refunded' : 'status-paid'; ?>">
-                            <?php echo $isRefund ? 'Refunded' : 'Paid'; ?>
-                        </span>
-                    </p>
-                </div>
+            <div class="receipt-title"><?php echo $documentTitle; ?></div>
+        </div>
+
+        <!-- Receipt Info -->
+        <div class="receipt-info">
+            <div><strong>Receipt #:</strong> <?php echo $bookingReference; ?></div>
+            <div><strong>Date:</strong> <?php echo $receiptDate; ?></div>
+        </div>
+
+        <!-- Customer Info -->
+        <div class="customer-info">
+            <h4>CUSTOMER DETAILS</h4>
+            <div><strong>Name:</strong> <?php echo htmlspecialchars($invoice['fullName']); ?></div>
+            <div><strong>Email:</strong> <?php echo htmlspecialchars($invoice['email']); ?></div>
+            <div><strong>Phone:</strong> <?php echo htmlspecialchars($invoice['phone']); ?></div>
+        </div>
+
+        <!-- Booking Details -->
+        <div class="booking-details">
+            <h4>BOOKING DETAILS</h4>
+            <div><strong>Date:</strong> <?php echo $formattedDate; ?></div>
+            <div><strong>Time:</strong> <?php echo $formattedStartTime . ' - ' . $formattedEndTime; ?></div>
+            <div><strong>Duration:</strong> <?php echo $invoice['duration']; ?> hour<?php echo $invoice['duration'] > 1 ? 's' : ''; ?></div>
+            <div><strong>Room:</strong> <?php echo htmlspecialchars($invoice['roomName']); ?></div>
+            <div><strong>Status:</strong> 
+                <span class="status-badge">
+                    <?php echo $isRefund ? 'REFUNDED' : 'PAID'; ?>
+                </span>
             </div>
-            
-            <!-- Service Details -->
-            <table class="table invoice-details">
-                <thead>
-                    <tr>
-                        <th>Description</th>
-                        <th>Room</th>
-                        <th>Rate/Hour</th>
-                        <th>Hours</th>
-                        <th class="text-end">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>
-                            <strong><?php echo htmlspecialchars($invoice['packageName']); ?> Package</strong>
-                            <br>
-                            <small class="text-muted"><?php echo nl2br(htmlspecialchars($invoice['description'])); ?></small>
-                        </td>
-                        <td><?php echo htmlspecialchars($invoice['roomName']); ?></td>
-                        <td>RM <?php echo number_format($invoice['pricePerHour'], 2); ?></td>
-                        <td><?php echo $invoice['duration']; ?></td>
-                        <td class="text-end">RM <?php echo number_format($invoice['totalPrice'], 2); ?></td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <!-- Total Section -->
-            <div class="total-section">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Payment Details:</h6>
-                        <p class="mb-1"><strong>Method:</strong> <?php echo htmlspecialchars($invoice['paymentMethod']); ?></p>
-                        <p class="mb-1"><strong>Date:</strong> <?php echo date('F j, Y g:i A', strtotime($invoice['paymentDate'])); ?></p>
-                        <?php if ($isRefund): ?>
-                        <p class="mb-0"><strong>Refund Status:</strong> <span class="text-success">Completed</span></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="text-end">
-                            <p class="mb-1">Subtotal: <strong>RM <?php echo number_format($invoice['totalPrice'], 2); ?></strong></p>
-                            <p class="mb-1">Tax (0%): <strong>RM 0.00</strong></p>
-                            <hr>
-                            <h5 class="mb-0">
-                                <?php echo $isRefund ? 'Total Refunded:' : 'Total Paid:'; ?> 
-                                <strong>RM <?php echo number_format($invoice['amountPaid'], 2); ?></strong>
-                            </h5>
-                        </div>
-                    </div>
-                </div>
+        </div>
+
+        <!-- Items -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>ITEM</th>
+                    <th>QTY</th>
+                    <th>RATE</th>
+                    <th class="amount">AMOUNT</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <?php echo htmlspecialchars($invoice['packageName']); ?> Package<br>
+                        <small><?php echo htmlspecialchars($invoice['roomName']); ?></small>
+                    </td>
+                    <td><?php echo $invoice['duration']; ?>h</td>
+                    <td>RM <?php echo number_format($invoice['pricePerHour'], 2); ?></td>
+                    <td class="amount">RM <?php echo number_format($invoice['totalPrice'], 2); ?></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Total Section -->
+        <div class="total-section">
+            <div class="total-line">
+                <span>Subtotal:</span>
+                <span>RM <?php echo number_format($invoice['totalPrice'], 2); ?></span>
             </div>
-            
-            <!-- Special Requests -->
-            <?php if (!empty($invoice['addInfo'])): ?>
-            <div class="mt-4">
-                <h6>
-                    <?php echo $invoice['reservationStatus'] == 'cancelled' ? 'Cancellation Details:' : 'Special Requests:'; ?>
-                </h6>
-                <div class="border rounded p-3 bg-light">
-                    <p class="mb-0"><?php echo nl2br(htmlspecialchars($invoice['addInfo'])); ?></p>
-                </div>
+            <div class="total-line">
+                <span>Tax (0%):</span>
+                <span>RM 0.00</span>
             </div>
+            <div class="total-line total-final">
+                <span><?php echo $isRefund ? 'TOTAL REFUNDED:' : 'TOTAL PAID:'; ?></span>
+                <span>RM <?php echo number_format($invoice['amountPaid'], 2); ?></span>
+            </div>
+        </div>
+
+        <!-- Payment Info -->
+        <div class="payment-info">
+            <h4>PAYMENT DETAILS</h4>
+            <div><strong>Method:</strong> <?php echo htmlspecialchars($invoice['paymentMethod']); ?></div>
+            <div><strong>Date:</strong> <?php echo date('d/m/Y g:i A', strtotime($invoice['paymentDate'])); ?></div>
+            <?php if ($isRefund): ?>
+            <div><strong>Refund Status:</strong> COMPLETED</div>
             <?php endif; ?>
-            
-            <!-- Footer -->
-            <div class="text-center mt-4 pt-4 border-top">
-                <p class="text-muted mb-2">Thank you for choosing Crony Karaoke!</p>
-                <p class="small text-muted mb-0">
-                    This <?php echo strtolower($documentTitle); ?> was generated on <?php echo date('F j, Y g:i A'); ?>
-                </p>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div class="text-center mt-4 no-print">
-                <button onclick="window.print()" class="btn btn-primary btn-print me-2">
-                    🖨️ Print <?php echo $documentTitle; ?>
-                </button>
-                <a href="booking.php" class="btn btn-outline-secondary">
-                    ← Back to Bookings
-                </a>
+        </div>
+
+        <!-- Special Requests -->
+        <?php if (!empty($invoice['addInfo'])): ?>
+        <div class="payment-info">
+            <h4><?php echo $invoice['reservationStatus'] == 'cancelled' ? 'CANCELLATION DETAILS' : 'SPECIAL REQUESTS'; ?></h4>
+            <div><?php echo nl2br(htmlspecialchars($invoice['addInfo'])); ?></div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div>*** THANK YOU FOR CHOOSING CRONY KARAOKE ***</div>
+            <div>Sing. Laugh. Repeat.</div>
+            <div style="margin-top: 10px;">
+                This receipt was generated on<br>
+                <?php echo date('d/m/Y g:i A'); ?>
             </div>
         </div>
     </div>
-</div>
 
-<script src="../assets/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <!-- Print Button (hidden when printing) -->
+    <div class="print-button">
+        <button onclick="window.print()" class="print-btn">🖨️ PRINT RECEIPT</button>
+    </div>
 
+    <!-- Back Link -->
+    <div class="back-link">
+        <a href="booking.php">← Back to Bookings</a>
+    </div>
+
+    <script>
+        // Auto-focus for better print experience
+        window.addEventListener('load', function() {
+            // Optional: Auto-print when page loads (uncomment if needed)
+            // window.print();
+        });
+    </script>
 </body>
 </html>

@@ -586,6 +586,7 @@ $reservations = $stmt->get_result();
                 <p class="mbr-fonts-style copyright display-8">
                     © Copyright 2025 Crony Karaoke - All Rights Reserved
                 </p>
+                <p class="mb-0">Powered by CronyTech</p>
             </div>
         </div>
     </div>

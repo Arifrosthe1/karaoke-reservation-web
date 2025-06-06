@@ -509,6 +509,7 @@ $payment_methods = [
                 </a>
             </div>
             <p class="mb-0">© 2025 Crony Karaoke — Sing. Laugh. Repeat.</p>
+            <p class="mb-0">Powered by CronyTech</p>
         </div>
     </footer>
 

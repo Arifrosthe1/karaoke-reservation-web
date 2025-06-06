@@ -215,6 +215,7 @@ if (!isset($_SESSION['completed_reservation'])) {
     <footer class="footer">
         <div class="container">
             <p class="mb-0">© 2025 Crony Karaoke — Sing. Laugh. Repeat.</p>
+            <p class="mb-0">Powered by CronyTech</p>
         </div>
     </footer>
 
