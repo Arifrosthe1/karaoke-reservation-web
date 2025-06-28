@@ -4,7 +4,7 @@ session_start();
 
 // Check admin authentication
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
-    header("Location: login.php");
+    header("Location: ../login.php");
     exit();
 }
 
