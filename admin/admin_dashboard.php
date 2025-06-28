@@ -5,7 +5,7 @@ session_start();
 // Basic session check for admin.
 // In a real application, you would also check if $_SESSION['role'] is 'admin'.
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') { // Added role check here
-    header("Location: login.php"); // Redirect to login page if not logged in or not admin
+    header("Location: ../login.php"); // Redirect to login page if not logged in or not admin
     exit();
 }
 

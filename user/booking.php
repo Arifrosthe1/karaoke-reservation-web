@@ -734,7 +734,7 @@ $bookings = $stmt->get_result();
             <div class="action-buttons">
               <?php if ($booking['paymentStatus']): ?>
                 <a href="view_invoice.php?id=<?php echo $booking['reservationID']; ?>" class="action-btn btn-secondary-action">
-                  <?php echo $booking['reservationStatus'] == 'cancelled' ? 'Refund Receipt' : 'View Invoice'; ?>
+                  <?php echo $booking['reservationStatus'] == 'cancelled' ? 'Refund Receipt' : 'View Receipt'; ?>
                 </a>
               <?php endif; ?>
 
